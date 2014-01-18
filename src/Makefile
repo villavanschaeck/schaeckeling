@@ -1,0 +1,24 @@
+CC=gcc
+CFLAGS=-Wall -g -std=c99
+LDFLAGS=-lpthread -lftdi -lrt
+APP=dmxmain
+
+all: $(APP)
+
+$(APP): dmxd.o dmxdriver.o colors.o net.o
+	$(CC) -o $(APP) $(LDFLAGS) dmxd.o dmxdriver.o colors.o net.o
+
+dmxdriver.o: dmxdriver.c dmxdriver.h
+	$(CC) -c $(CFLAGS) dmxdriver.c
+
+dmxd.o: dmxd.c dmxdriver.h
+	$(CC) -c $(CFLAGS) dmxd.c
+
+colors.o: colors.c
+	$(CC) -c $(CFLAGS) colors.c
+
+net.o: net.c
+	$(CC) -c $(CFLAGS) net.c
+
+clean:
+	rm $(APP) *.o
