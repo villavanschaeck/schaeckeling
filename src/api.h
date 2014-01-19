@@ -1,23 +1,23 @@
 /**************************************************
  Common API definitions.
 **************************************************/
-#define GET_WIDGET_SN		10
-#define SET_API_KEY			13
-#define HARDWARE_VERSION	14
+#define GET_WIDGET_SN       10
+#define SET_API_KEY         13
+#define HARDWARE_VERSION    14
 
 /**************************************************
  API1 definitions.
 **************************************************/
-#define GET_WIDGET_PARAMS_1				3
-#define GET_WIDGET_PARAMS_REPLY_1		3
-#define SET_WIDGET_PARAMS_1				4
-#define RECEIVE_DMX_1					5
-#define SEND_DMX_1						6
-#define SEND_DMX_RDM_TX_1				7
-#define RECEIVE_DMX_ON_CHANGE_1			8
-#define RECEIVED_DMX_COS_TYPE_1			9
-#define RDM_DISCOVERY_REQUEST_1			11
-#define RDM_CONTROLLER_RECV_TIMEOUT_1	12
+#define GET_WIDGET_PARAMS_1             3
+#define GET_WIDGET_PARAMS_REPLY_1       3
+#define SET_WIDGET_PARAMS_1             4
+#define RECEIVE_DMX_1                   5
+#define SEND_DMX_1                      6
+#define SEND_DMX_RDM_TX_1               7
+#define RECEIVE_DMX_ON_CHANGE_1         8
+#define RECEIVED_DMX_COS_TYPE_1         9
+#define RDM_DISCOVERY_REQUEST_1         11
+#define RDM_CONTROLLER_RECV_TIMEOUT_1   12
 
 /**************************************************
  API2 definitions.
@@ -44,19 +44,19 @@
 
 #pragma pack(1)
 typedef struct {
-        unsigned char FirmwareLSB;
-        unsigned char FirmwareMSB;
-        unsigned char BreakTime;
-        unsigned char MaBTime;
-        unsigned char RefreshRate;
+	unsigned char FirmwareLSB;
+	unsigned char FirmwareMSB;
+	unsigned char BreakTime;
+	unsigned char MaBTime;
+	unsigned char RefreshRate;
 }DMXUSBPROParamsType;
 
 typedef struct {
-        unsigned char UserSizeLSB;
-        unsigned char UserSizeMSB;
-        unsigned char BreakTime;
-        unsigned char MaBTime;
-        unsigned char RefreshRate;
+	unsigned char UserSizeLSB;
+	unsigned char UserSizeMSB;
+	unsigned char BreakTime;
+	unsigned char MaBTime;
+	unsigned char RefreshRate;
 }DMXUSBPROSetParamsType;
 #pragma pack()
 
