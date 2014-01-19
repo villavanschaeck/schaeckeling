@@ -2,6 +2,7 @@
 
 
 #include "dmxdriver.h"
+#include "api.h"
 #include <string.h>
 #include <time.h>
 #include <assert.h>
