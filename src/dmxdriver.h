@@ -15,4 +15,3 @@ struct ftdi_context * init_dmx_usb_mk2_pro(dmx_updated_callback_t dmx_callback);
 void teardown_dmx_usb_mk2_pro(struct ftdi_context *ftdic);
 void send_dmx(struct ftdi_context *ftdic, unsigned char *dmxbytes);
 #endif
-

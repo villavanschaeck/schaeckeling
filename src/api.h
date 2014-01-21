@@ -49,7 +49,7 @@ typedef struct {
 	unsigned char BreakTime;
 	unsigned char MaBTime;
 	unsigned char RefreshRate;
-}DMXUSBPROParamsType;
+} DMXUSBPROParamsType;
 
 typedef struct {
 	unsigned char UserSizeLSB;
@@ -57,7 +57,7 @@ typedef struct {
 	unsigned char BreakTime;
 	unsigned char MaBTime;
 	unsigned char RefreshRate;
-}DMXUSBPROSetParamsType;
+} DMXUSBPROSetParamsType;
 #pragma pack()
 
 struct ReceivedDmxCosStruct

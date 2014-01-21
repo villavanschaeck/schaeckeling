@@ -57,8 +57,7 @@ send_msg_error(int ret) {
 
 
 int
-send_msg(struct ftdi_context *ftdic, int label, unsigned char *data, int length)
-{
+send_msg(struct ftdi_context *ftdic, int label, unsigned char *data, int length) {
 	unsigned char end_code = MSG_END_CODE;
 	int ret = 0;
 
@@ -397,4 +396,3 @@ teardown_dmx_usb_mk2_pro(struct ftdi_context *ftdic) {
 	ftdi_free(ftdic);
 	return;
 }
-
