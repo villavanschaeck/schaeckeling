@@ -216,8 +216,7 @@ receive_msg(struct ftdi_context *ftdic, struct application_message *appmsg) {
 	return label;
 }
 
-
-void *
+void
 read_dmx_usb_mk2_pro(struct thread_arguments *thread_args) {
 	struct ftdi_context *ftdic = thread_args->ftdic;
 	dmx_updated_callback_t dmx_callback;
@@ -265,7 +264,11 @@ read_dmx_usb_mk2_pro(struct thread_arguments *thread_args) {
 			}
 		}
 	}
+}
 
+static void *
+read_dmx_usb_mk2_pro_runner(void *thread_args) {
+	read_dmx_usb_mk2_pro(thread_args);
 	return NULL;
 }
 
@@ -379,7 +382,7 @@ init_dmx_usb_mk2_pro(dmx_updated_callback_t dmx_callback) {
 	thread_args->ftdic = ftdic;
 	thread_args->dmx_callback = dmx_callback;
 	running = 1;
-	pthread_create(&readid, NULL, read_dmx_usb_mk2_pro, thread_args);
+	pthread_create(&readid, NULL, read_dmx_usb_mk2_pro_runner, thread_args);
 
 	return ftdic;
 }
