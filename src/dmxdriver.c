@@ -12,6 +12,7 @@
 pthread_t readid;
 unsigned char running;
 
+extern int watchdog_dmx_pong;
 
 void
 purge_buffers(struct ftdi_context *ftdic) {
@@ -228,6 +229,7 @@ read_dmx_usb_mk2_pro(struct thread_arguments *thread_args) {
 	free(thread_args);
 
 	while (running) {
+		watchdog_dmx_pong = 1;
 		ret = receive_msg(ftdic, &appmsg);
 
 		if (ret < 0) {
