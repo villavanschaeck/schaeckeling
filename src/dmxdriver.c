@@ -1,16 +1,12 @@
 #define _POSIX_C_SOURCE 199309L
 
 
+#include <pthread.h>
 #include "dmxdriver.h"
 #include "api.h"
 #include <string.h>
 #include <time.h>
 #include <assert.h>
-#include <pthread.h>
-
-
-pthread_t readid;
-unsigned char running;
 
 extern int watchdog_dmx_pong;
 
@@ -94,7 +90,7 @@ send_msg(struct ftdi_context *ftdic, int label, unsigned char *data, int length)
 
 
 void
-send_dmx(struct ftdi_context *ftdic, unsigned char *dmxbytes) {
+send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes) {
 	unsigned char my_dmx[513];
 	int ret;
 	
@@ -104,7 +100,7 @@ send_dmx(struct ftdi_context *ftdic, unsigned char *dmxbytes) {
 	my_dmx[0] = 0;
 
 	// send the array here
-	ret = send_msg(ftdic, SEND_DMX_2, my_dmx, 513);
+	ret = send_msg(mk2c->ftdic, SEND_DMX_2, my_dmx, 513);
 	if (ret < 0)
 	{
 		fprintf(stderr, "FAILED to send DMX ... exiting. FIXME THIS MESSAGE TO BE USEFUL!\n");
@@ -131,20 +127,20 @@ receive_msg_error(int ret) {
  *
  */
 int
-read_data(struct ftdi_context *ftdic, unsigned char *buffer, int length) {
+read_data(struct mk2_pro_context *mk2c, unsigned char *buffer, int length) {
 	int ret;
 	int bytes_read = 0;
 
-	while (bytes_read < length && running) {
+	while (bytes_read < length && mk2c->running) {
 		//fprintf(stderr, "Reading data, still %d to read.", length - bytes_read);
-		ret = ftdi_read_data(ftdic, buffer + bytes_read, length - bytes_read);
+		ret = ftdi_read_data(mk2c->ftdic, buffer + bytes_read, length - bytes_read);
 		if (ret < 0) {
 			receive_msg_error(ret);
 			return -1;
 		}
 		bytes_read += ret;
 	}
-	if (!running) {
+	if (!mk2c->running) {
 		pthread_exit(NULL);
 	}
 
@@ -154,7 +150,7 @@ read_data(struct ftdi_context *ftdic, unsigned char *buffer, int length) {
 
 
 int
-receive_msg(struct ftdi_context *ftdic, struct application_message *appmsg) {
+receive_msg(struct mk2_pro_context *mk2c, struct application_message *appmsg) {
 	int ret;
 	int label;
 	int length = 0;
@@ -163,7 +159,7 @@ receive_msg(struct ftdi_context *ftdic, struct application_message *appmsg) {
 
 	/* Read header */
 	//fprintf(stderr, "Reading new packet header.\n");
-	ret = read_data(ftdic, header, MSG_HEADER_LENGTH);
+	ret = read_data(mk2c, header, MSG_HEADER_LENGTH);
 	if (ret == -1) {
 		return -1;
 	}
@@ -182,7 +178,7 @@ receive_msg(struct ftdi_context *ftdic, struct application_message *appmsg) {
 			
 			/* Move the header one byte, discarding the "wrong" MSG_START_CODE, then read another byte and repeat */
 			memmove(header, header + 1, MSG_HEADER_LENGTH - 1);
-			ret = read_data(ftdic, header + 3, 1);
+			ret = read_data(mk2c, header + 3, 1);
 			if (ret != 1) {
 				return -1;
 			}
@@ -192,13 +188,13 @@ receive_msg(struct ftdi_context *ftdic, struct application_message *appmsg) {
 		}
 	}
 	
-	ret = read_data(ftdic, buffer, length);
+	ret = read_data(mk2c, buffer, length);
 	if (ret == -1) {
 		return -1;
 	}
 
 	/* Check end code */
-	ret = read_data(ftdic, header, 1);
+	ret = read_data(mk2c, header, 1);
 	if (ret == -1) {
 		return -1;
 	}
@@ -216,23 +212,18 @@ receive_msg(struct ftdi_context *ftdic, struct application_message *appmsg) {
 }
 
 void
-read_dmx_usb_mk2_pro(struct thread_arguments *thread_args) {
-	struct ftdi_context *ftdic = thread_args->ftdic;
-	dmx_updated_callback_t dmx_callback;
+read_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	int ret;
 	unsigned char dmx_state[512];
 	struct application_message appmsg;
 
-	dmx_callback = thread_args->dmx_callback;
-	free(thread_args);
-
-	while (running) {
+	while (mk2c->running) {
 		watchdog_dmx_pong = 1;
-		ret = receive_msg(ftdic, &appmsg);
+		ret = receive_msg(mk2c, &appmsg);
 
 		if (ret < 0) {
 			fprintf(stderr, "Error occurred during receive. Purging receive buffer and retrying.\n");
-			ret = purge_receive_buffer(ftdic);
+			ret = purge_receive_buffer(mk2c->ftdic);
 			continue;
 		}
 
@@ -258,7 +249,7 @@ read_dmx_usb_mk2_pro(struct thread_arguments *thread_args) {
 			if (appmsg.data[i + 2] != dmx_state[i]) {
 				fprintf(stderr, "Channel %d changed to value %d\n", i + 1, appmsg.data[i + 2]);
 				/* todo callback */
-				dmx_callback(i, dmx_state[i], appmsg.data[i+2]);
+				mk2c->dmx_callback(i, dmx_state[i], appmsg.data[i+2]);
 				dmx_state[i] = appmsg.data[i+2];
 			}
 		}
@@ -266,8 +257,8 @@ read_dmx_usb_mk2_pro(struct thread_arguments *thread_args) {
 }
 
 static void *
-read_dmx_usb_mk2_pro_runner(void *thread_args) {
-	read_dmx_usb_mk2_pro(thread_args);
+read_dmx_usb_mk2_pro_runner(void *mk2c) {
+	read_dmx_usb_mk2_pro(mk2c);
 	return NULL;
 }
 
@@ -349,50 +340,50 @@ set_dmx_recv_mode(struct ftdi_context *ftdic, unsigned char on_change) {
 }
 
 
-struct ftdi_context *
+struct mk2_pro_context *
 init_dmx_usb_mk2_pro(dmx_updated_callback_t dmx_callback) {
 	int ret;
-	struct ftdi_context *ftdic;
-	struct thread_arguments *thread_args;
+	struct mk2_pro_context *mk2c;
 
-	thread_args = malloc(sizeof(struct thread_arguments));
-	if (thread_args == NULL) {
-		fprintf(stderr, "Error allocating memory for thread_arguments.");
+	mk2c = malloc(sizeof(struct mk2_pro_context));
+	if (mk2c == NULL) {
+		fprintf(stderr, "Error allocating memory for mk2_pro_context.");
 		exit(1);
 	}
 
-	ftdic = ftdi_new();
-	if (ftdic == NULL) {
+	mk2c->ftdic = ftdi_new();
+	if (mk2c->ftdic == NULL) {
+		free(mk2c);
 		fprintf(stderr, "ftdi_init failed\n");
 		return NULL;
 	}
 
-	ret = connect_dmx_usb_mk2_pro(ftdic);
+	ret = connect_dmx_usb_mk2_pro(mk2c->ftdic);
 	if (ret != 0) {
-		ftdi_free(ftdic);
+		ftdi_free(mk2c->ftdic);
+		free(mk2c);
 		return NULL;
 	}
 
-	purge_buffers(ftdic);
+	purge_buffers(mk2c->ftdic);
 
-	ret = enable_second_universe(ftdic);
-	ret = set_dmx_recv_mode(ftdic, 0);
+	ret = enable_second_universe(mk2c->ftdic);
+	ret = set_dmx_recv_mode(mk2c->ftdic, 0);
 
-	thread_args->ftdic = ftdic;
-	thread_args->dmx_callback = dmx_callback;
-	running = 1;
-	pthread_create(&readid, NULL, read_dmx_usb_mk2_pro_runner, thread_args);
+	mk2c->dmx_callback = dmx_callback;
+	mk2c->running = 1;
+	pthread_create(&mk2c->readid, NULL, read_dmx_usb_mk2_pro_runner, mk2c);
 
-	return ftdic;
+	return mk2c;
 }
 
 
 void
-teardown_dmx_usb_mk2_pro(struct ftdi_context *ftdic) {
-	running = 0;
-	pthread_join(readid, NULL);
-	purge_buffers(ftdic);
-	ftdi_usb_close(ftdic);
-	ftdi_free(ftdic);
+teardown_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
+	mk2c->running = 0;
+	pthread_join(mk2c->readid, NULL);
+	purge_buffers(mk2c->ftdic);
+	ftdi_usb_close(mk2c->ftdic);
+	ftdi_free(mk2c->ftdic);
 	return;
 }

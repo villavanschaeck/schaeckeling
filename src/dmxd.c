@@ -42,7 +42,7 @@ struct fader_handler {
 	} data;
 };
 
-struct ftdi_context *ftdic;
+struct mk2_pro_context *mk2c;
 
 pthread_t netthr, progthr, watchdogthr;
 pthread_mutex_t dmx2_sendbuf_mtx, stepmtx;
@@ -115,7 +115,7 @@ dmx_changed(int channel, unsigned char old, unsigned char new) {
 			fader_overridden[handlers[channel].data.single_channel.channel] = (new > 0);
 			fader_overrides[handlers[channel].data.single_channel.channel] = new;
 			dmx2_dirty = 1;
-			send_dmx(ftdic, dmx2_sendbuf);
+			send_dmx(mk2c, dmx2_sendbuf);
 			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			break;
 		case HANDLE_LED_STATIC:
@@ -129,7 +129,7 @@ dmx_changed(int channel, unsigned char old, unsigned char new) {
 			dmx2_sendbuf[ch] = new;
 			fader_overrides[ch] = new;
 			dmx2_dirty = 1;
-			send_dmx(ftdic, dmx2_sendbuf);
+			send_dmx(mk2c, dmx2_sendbuf);
 			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			break;
 		case HANDLE_LED_2CH_INTENSITY:
@@ -353,15 +353,15 @@ prog_runner(void *dummy) {
 		}
 		printf("\n");
 		dmx2_dirty = 1;
-		send_dmx(ftdic, dmx2_sendbuf);
+		send_dmx(mk2c, dmx2_sendbuf);
 		pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 		watchdog_prog_pong = 1;
 		sleep(1);
 		step += 9;
 		if(step >= 250) {
-			teardown_dmx_usb_mk2_pro(ftdic);
-			ftdic = init_dmx_usb_mk2_pro(dmx_changed);
-			assert(ftdic != NULL);
+			teardown_dmx_usb_mk2_pro(mk2c);
+			mk2c = init_dmx_usb_mk2_pro(dmx_changed);
+			assert(mk2c != NULL);
 		}
 	}
 	while(1) {
@@ -376,7 +376,7 @@ prog_runner(void *dummy) {
 			}
 			printf("\n");
 			dmx2_dirty = 1;
-			send_dmx(ftdic, dmx2_sendbuf);
+			send_dmx(mk2c, dmx2_sendbuf);
 			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 
 			printf("[prog] pthread_cond_timedwait(&stepcond, &stepmtx, { %d, %ld });\n", (int)nextstep.tv_sec, nextstep.tv_nsec);
@@ -475,8 +475,8 @@ main(int argc, char **argv) {
 
 	read_config_file("config.dat");
 
-	ftdic = init_dmx_usb_mk2_pro(dmx_changed);
-	if(ftdic == NULL) {
+	mk2c = init_dmx_usb_mk2_pro(dmx_changed);
+	if(mk2c == NULL) {
 		abort(); // XXX
 	}
 	init_net();
@@ -485,7 +485,7 @@ main(int argc, char **argv) {
 	pthread_create(&progthr, NULL, prog_runner, NULL);
 	// pthread_create(&watchdogthr, NULL, watchdog_runner, NULL);
 
-	send_dmx(ftdic, dmx2_sendbuf);
+	send_dmx(mk2c, dmx2_sendbuf);
 
 	// dmx_runner(NULL);
 	watchdog_runner(NULL);

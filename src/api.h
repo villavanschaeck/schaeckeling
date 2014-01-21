@@ -73,9 +73,11 @@ struct application_message {
 	unsigned char data[600];
 };
 
-struct thread_arguments {
+struct mk2_pro_context {
 	struct ftdi_context *ftdic;
 	dmx_updated_callback_t dmx_callback;
+	pthread_t readid;
+	unsigned char running;
 };
 
 
