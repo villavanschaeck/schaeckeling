@@ -3,3 +3,4 @@ api_key.h
 
 *.o
 src/dmxmain
+src/dmxdog

@@ -3,7 +3,7 @@ CFLAGS=-Wall -g -std=c99
 LDFLAGS=-lpthread -lftdi -lrt
 APP=dmxmain
 
-all: $(APP)
+all: $(APP) dmxdog
 
 $(APP): dmxd.o dmxdriver.o colors.o net.o
 	$(CC) -o $(APP) $(LDFLAGS) dmxd.o dmxdriver.o colors.o net.o
@@ -19,6 +19,9 @@ colors.o: colors.c
 
 net.o: net.c
 	$(CC) -c $(CFLAGS) net.c
+
+dmxdog: dmxdog.c
+	cc -o dmxdog $(CFLAGS) dmxdog.c
 
 clean:
 	rm $(APP) *.o

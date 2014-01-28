@@ -16,6 +16,7 @@
 #include <time.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include "dmxdriver.h"
 #include "net.h"
 #include "colors.h"
@@ -394,6 +395,8 @@ prog_runner(void *dummy) {
 
 void *
 watchdog_runner(void *dummy) {
+	int ok = 1;
+	pid_t parent;
 	while(1) {
 		watchdog_dmx_pong = 0;
 		watchdog_net_pong = 0;
@@ -404,12 +407,21 @@ watchdog_runner(void *dummy) {
 
 		if(!watchdog_dmx_pong) {
 			fprintf(stderr, "Watchdog: DMX thread not responding\n");
+			ok = 0;
 		}
 		if(!watchdog_net_pong) {
 			fprintf(stderr, "Watchdog: Network thread not responding\n");
+			ok = 0;
 		}
 		if(!watchdog_prog_pong) {
 			fprintf(stderr, "Watchdog: Program thread not responding\n");
+			ok = 0;
+		}
+		if(ok) {
+			parent = getppid();
+			if(parent != 1) {
+				kill(parent, SIGWINCH);
+			}
 		}
 	}
 	return NULL;
