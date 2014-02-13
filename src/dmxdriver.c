@@ -364,27 +364,21 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 
 	ret = connect_dmx_usb_mk2_pro(mk2c->ftdic);
 	if (ret != 0) {
-		ftdi_free(mk2c->ftdic);
-		free(mk2c);
-		return NULL;
+		goto error;
 	}
 
 	ret = purge_buffers(mk2c->ftdic);
 	if (ret != 0) {
-		return NULL;
+		goto error;
 	}
 
 	ret = enable_second_universe(mk2c->ftdic);
 	if(ret != 0) {
-		ftdi_free(mk2c->ftdic);
-		free(mk2c);
-		return NULL;
+		goto error;
 	}
 	ret = set_dmx_recv_mode(mk2c->ftdic, 0);
 	if(ret != 0) {
-		ftdi_free(mk2c->ftdic);
-		free(mk2c);
-		return NULL;
+		goto error;
 	}
 
 	mk2c->update_callback = update_callback;
@@ -394,6 +388,11 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 	pthread_create(&mk2c->readid, NULL, read_dmx_usb_mk2_pro_runner, mk2c);
 
 	return mk2c;
+
+error:
+	ftdi_free(mk2c->ftdic);
+	free(mk2c);
+	return NULL;
 }
 
 
