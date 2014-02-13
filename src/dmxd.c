@@ -343,28 +343,6 @@ void *
 prog_runner(void *dummy) {
 	pthread_mutex_lock(&stepmtx);
 	clock_gettime(CLOCK_REALTIME, &nextstep);
-	unsigned char step = 0;
-	while(1) {
-		int ch;
-		pthread_mutex_lock(&dmx2_sendbuf_mtx);
-		printf("program_step: ");
-		convert_color(step, dmx2_sendbuf+1);
-		for(ch = 1; 4 > ch; ch++) {
-			printf("%d: %03d; ", ch, dmx2_sendbuf[ch]);
-		}
-		printf("\n");
-		dmx2_dirty = 1;
-		send_dmx(mk2c, dmx2_sendbuf);
-		pthread_mutex_unlock(&dmx2_sendbuf_mtx);
-		watchdog_prog_pong = 1;
-		sleep(1);
-		step += 9;
-		if(step >= 250) {
-			teardown_dmx_usb_mk2_pro(mk2c);
-			mk2c = init_dmx_usb_mk2_pro(dmx_changed);
-			assert(mk2c != NULL);
-		}
-	}
 	while(1) {
 		int step = 0;
 		while(programma_steps > step) {
