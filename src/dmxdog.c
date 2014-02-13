@@ -75,6 +75,7 @@ main(int argc, char **argv) {
 			sleep(3);
 			kill(pid, 9);
 			EXTERNAL_FAIL();
+			pid = 0;
 		}
 	}
 }
