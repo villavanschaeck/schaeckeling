@@ -130,6 +130,7 @@ read_data(struct mk2_pro_context *mk2c, unsigned char *buffer, int length) {
 	int bytes_read = 0;
 
 	while (bytes_read < length && mk2c->running) {
+		watchdog_dmx_pong = 1;
 		//fprintf(stderr, "Reading data, still %d to read.", length - bytes_read);
 		ret = ftdi_read_data(mk2c->ftdic, buffer + bytes_read, length - bytes_read);
 		if (ret < 0) {
@@ -216,7 +217,6 @@ read_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	struct application_message appmsg;
 
 	while (mk2c->running) {
-		watchdog_dmx_pong = 1;
 		ret = receive_msg(mk2c, &appmsg);
 
 		if (ret < 0) {
