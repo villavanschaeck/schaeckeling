@@ -385,5 +385,5 @@ teardown_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	purge_buffers(mk2c->ftdic);
 	ftdi_usb_close(mk2c->ftdic);
 	ftdi_free(mk2c->ftdic);
-	return;
+	free(mk2c);
 }
