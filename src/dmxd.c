@@ -115,6 +115,7 @@ flush_dmx2_sendbuf() {
 	pthread_mutex_lock(&dmx2_sendbuf_mtx);
 	if(dmx2_dirty) {
 		send_dmx(mk2c, dmx2_sendbuf);
+		update_websockets(1, 0);
 		dmx2_dirty = 0;
 	}
 	pthread_mutex_unlock(&dmx2_sendbuf_mtx);
@@ -205,6 +206,7 @@ void
 dmx_input_completed() {
 	dmx1_receiving_changes = 0;
 	flush_dmx2_sendbuf();
+	update_websockets(0, 1);
 }
 
 static void
@@ -229,7 +231,7 @@ update_websockets(int dmx1, int dmx2) {
 	}
 	if(dmx2) {
 		char *msg = malloc(1 + DMX_CHANNELS);
-		msg[0] = '1';
+		msg[0] = '2';
 		memcpy(msg+1, dmx2_sendbuf, DMX_CHANNELS);
 		broadcast(msg, 1 + DMX_CHANNELS);
 	}
@@ -372,6 +374,7 @@ prog_runner(void *dummy) {
 				reconnect_if_needed();
 			} else {
 				send_dmx(mk2c, dmx2_sendbuf);
+				update_websockets(1, 0);
 				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			}
 
