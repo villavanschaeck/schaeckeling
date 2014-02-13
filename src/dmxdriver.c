@@ -10,7 +10,7 @@
 
 extern int watchdog_dmx_pong;
 
-void
+static int
 purge_buffers(struct ftdi_context *ftdic) {
 	int ret;
 	ret = ftdi_usb_purge_buffers(ftdic);
@@ -27,7 +27,7 @@ purge_buffers(struct ftdi_context *ftdic) {
 }
 
 
-int
+static int
 purge_receive_buffer(struct ftdi_context *ftdic) {
 	int ret;
 	ret = ftdi_usb_purge_rx_buffer(ftdic);
@@ -40,7 +40,7 @@ purge_receive_buffer(struct ftdi_context *ftdic) {
 }
 
 
-void
+static void
 send_msg_error(int ret) {
 	if (ret == -666) {
 		fprintf(stderr, "USB Device Unavailable for ftdi_write_data\n");
@@ -52,7 +52,7 @@ send_msg_error(int ret) {
 }
 
 
-int
+static int
 send_msg(struct ftdi_context *ftdic, int label, unsigned char *data, int length) {
 	unsigned char end_code = MSG_END_CODE;
 	int ret = 0;
@@ -109,7 +109,7 @@ send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes) {
 }
 
 
-void
+static void
 receive_msg_error(int ret) {
 	if (ret == -666) {
 		fprintf(stderr, "USB Device Unavailable for ftdi_read_data\n");
@@ -126,7 +126,7 @@ receive_msg_error(int ret) {
  * Buffer must be at least length bytes in length.
  *
  */
-int
+static int
 read_data(struct mk2_pro_context *mk2c, unsigned char *buffer, int length) {
 	int ret;
 	int bytes_read = 0;
@@ -149,7 +149,7 @@ read_data(struct mk2_pro_context *mk2c, unsigned char *buffer, int length) {
 }
 
 
-int
+static int
 receive_msg(struct mk2_pro_context *mk2c, struct application_message *appmsg) {
 	int ret;
 	int label;
@@ -211,7 +211,7 @@ receive_msg(struct mk2_pro_context *mk2c, struct application_message *appmsg) {
 	return label;
 }
 
-void
+static void
 read_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	int ret;
 	unsigned char dmx_state[512];
@@ -264,7 +264,7 @@ read_dmx_usb_mk2_pro_runner(void *mk2c) {
 }
 
 
-int
+static int
 connect_dmx_usb_mk2_pro(struct ftdi_context *ftdic) {
 	int ret;
 
@@ -304,7 +304,7 @@ connect_dmx_usb_mk2_pro(struct ftdi_context *ftdic) {
 }
 
 
-int
+static int
 enable_second_universe(struct ftdi_context *ftdic) {
 	unsigned char port_set[] = { 1, 1};
 	int ret = 0;
@@ -328,7 +328,7 @@ enable_second_universe(struct ftdi_context *ftdic) {
 /**
  * on_change: 0 if we want to receive every DMX message, 1 if we want to receive only changes.
  */
-int
+static int
 set_dmx_recv_mode(struct ftdi_context *ftdic, unsigned char on_change) {
 	int ret;
 
