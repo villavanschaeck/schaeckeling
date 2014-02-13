@@ -193,40 +193,6 @@ update_websockets(int dmx1, int dmx2) {
 	}
 }
 
-/*
-void *
-dmx_runner(void *dummy) {
-	while(1) {
-		int ch, input_changes;
-		if(dmx2_dirty) {
-			printf("Sending");
-			fflush(NULL);
-			pthread_mutex_lock(&dmx2_sendbuf_mtx);
-			send_to_dmx(dmx2_sendbuf);
-			dmx2_dirty = 0;
-			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
-			printf("\n");
-		}
-		input_changes = 0;
-		wait_for_dmx(dmx1_recvbuf);
-		for(ch = 0; 25 > ch; ch++) { // XXX hack
-			if(abs(dmx1_recvbuf[ch] - dmx1_old_recvbuf[ch]) > 3) {
-				input_changes = 1;
-				dmx_changed(ch, dmx1_old_recvbuf[ch], dmx1_recvbuf[ch]);
-				dmx1_old_recvbuf[ch] = dmx1_recvbuf[ch];
-			}
-		}
-		if(input_changes || dmx2_dirty) {
-			update_websockets(input_changes, dmx2_dirty);
-		}
-		// sleep if needed
-		// usleep(25000);
-		watchdog_dmx_pong = 1;
-	}
-	return NULL;
-}
-*/
-
 int
 handle_data(struct connection *c, char *buf_s, size_t len) {
 	unsigned char *buf = (unsigned char *)buf_s;
@@ -486,11 +452,9 @@ main(int argc, char **argv) {
 
 	pthread_create(&netthr, NULL, net_runner, NULL);
 	pthread_create(&progthr, NULL, prog_runner, NULL);
-	// pthread_create(&watchdogthr, NULL, watchdog_runner, NULL);
 
 	send_dmx(mk2c, dmx2_sendbuf);
 
-	// dmx_runner(NULL);
 	watchdog_runner(NULL);
 
 	pre_deinit_net();
@@ -499,6 +463,5 @@ main(int argc, char **argv) {
 	pthread_join(netthr, &ret);
 	deinit_net();
 	pthread_join(progthr, &ret);
-	// pthread_join(watchdogthr, &ret);
 	return 0;
 }
