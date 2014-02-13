@@ -44,6 +44,7 @@ struct fader_handler {
 };
 
 struct mk2_pro_context *mk2c;
+volatile int mk2c_lost = 0;
 
 pthread_t netthr, progthr, watchdogthr;
 pthread_mutex_t dmx2_sendbuf_mtx, stepmtx;
@@ -60,6 +61,7 @@ unsigned char dmx1_old_recvbuf[DMX_CHANNELS];
 unsigned char dmx2_old_sendbuf[DMX_CHANNELS];
 
 volatile int dmx2_dirty = 0;
+volatile int dmx1_receiving_changes = 0;
 
 struct fader_handler handlers[DMX_CHANNELS];
 
@@ -100,12 +102,28 @@ decrement_timespec(struct timespec *ts, long sub) {
 }
 
 void
-dmx_changed(int channel, unsigned char old, unsigned char new) {
+mk2c_error(int error) {
+	fprintf(stderr, "Duitsers\n");
+	mk2c_lost = 1;
+	pthread_mutex_lock(&stepmtx);
+	pthread_cond_signal(&stepcond);
+	pthread_mutex_unlock(&stepmtx);
+}
+
+void
+flush_dmx2_sendbuf() {
+	pthread_mutex_lock(&dmx2_sendbuf_mtx);
+	if(dmx2_dirty) {
+		send_dmx(mk2c, dmx2_sendbuf);
+		dmx2_dirty = 0;
+	}
+	pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+}
+
+void
+dmx1_update_channel(int channel, unsigned char new) {
 	int ch;
 	unsigned char intensity, color;
-	assert(channel >= 0 && channel < DMX_CHANNELS);
-	printf("dmx_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
-	dmx1_recvbuf[channel] = new;
 
 	switch(handlers[channel].action) {
 		case HANDLE_NONE:
@@ -175,6 +193,33 @@ dmx_changed(int channel, unsigned char old, unsigned char new) {
 }
 
 void
+dmx_changed(int channel, unsigned char old, unsigned char new) {
+	assert(channel >= 0 && channel < DMX_CHANNELS);
+	printf("dmx_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
+	dmx1_recvbuf[channel] = new;
+	dmx1_receiving_changes = 1;
+	dmx1_update_channel(channel, new);
+}
+
+void
+dmx_input_completed() {
+	dmx1_receiving_changes = 0;
+	flush_dmx2_sendbuf();
+}
+
+static void
+reconnect_if_needed() {
+	if(mk2c_lost) {
+		teardown_dmx_usb_mk2_pro(mk2c);
+		mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
+		if(mk2c != NULL) {
+			mk2c_lost = 0;
+			flush_dmx2_sendbuf();
+		}
+	}
+}
+
+void
 update_websockets(int dmx1, int dmx2) {
 	if(dmx1) {
 		char *msg = malloc(1 + DMX_CHANNELS);
@@ -213,7 +258,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 				case 'R':
 					printf("net: Set fader %d to default\n", ch);
 					handlers[ch].action = HANDLE_NONE;
-					dmx_changed(ch, dmx1_recvbuf[ch], dmx1_recvbuf[ch]);
+					dmx1_update_channel(ch, dmx1_recvbuf[ch]);
 					break;
 				case 'C':
 					REQUIRE_MIN_LENGTH(4);
@@ -299,6 +344,9 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 		default:
 			return -1;
 	}
+	if(!dmx1_receiving_changes) {
+		flush_dmx2_sendbuf();
+	}
 	return processed;
 }
 #undef REQUIRE_MIN_LENGTH
@@ -318,9 +366,14 @@ prog_runner(void *dummy) {
 				printf("%d: %03d; ", ch, dmx2_sendbuf[ch]);
 			}
 			printf("\n");
-			dmx2_dirty = 1;
-			send_dmx(mk2c, dmx2_sendbuf);
-			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+			if(mk2c_lost) {
+				dmx2_dirty = 1;
+				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+				reconnect_if_needed();
+			} else {
+				send_dmx(mk2c, dmx2_sendbuf);
+				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+			}
 
 			printf("[prog] pthread_cond_timedwait(&stepcond, &stepmtx, { %d, %ld });\n", (int)nextstep.tv_sec, nextstep.tv_nsec);
 			int res = pthread_cond_timedwait(&stepcond, &stepmtx, &nextstep);
@@ -418,21 +471,6 @@ read_config_file(char *filename) {
 	munmap(cfg, st.st_size);
 	close(fd);
 	return ret;
-}
-
-void
-dmx_input_completed() {
-	pthread_mutex_lock(&dmx2_sendbuf_mtx);
-	if(dmx2_dirty) {
-		send_dmx(mk2c, dmx2_sendbuf);
-		dmx2_dirty = 0;
-	}
-	pthread_mutex_unlock(&dmx2_sendbuf_mtx);
-}
-
-void
-mk2c_error(int error) {
-	// XXX
 }
 
 int
