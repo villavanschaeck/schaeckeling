@@ -102,6 +102,25 @@ decrement_timespec(struct timespec *ts, long sub) {
 }
 
 void
+update_websockets(int dmx1, int dmx2) {
+	if(dmx1) {
+		char *msg = malloc(1 + DMX_CHANNELS);
+		msg[0] = '1';
+		memcpy(msg+1, dmx1_recvbuf, DMX_CHANNELS);
+		broadcast(msg, 1 + DMX_CHANNELS);
+	}
+	if(dmx2) {
+		char *msg = malloc(1 + DMX_CHANNELS);
+		msg[0] = '2';
+		memcpy(msg+1, dmx2_sendbuf, DMX_CHANNELS);
+		broadcast(msg, 1 + DMX_CHANNELS);
+	}
+	if(dmx1 || dmx2) {
+		wakeup_select();
+	}
+}
+
+void
 mk2c_error(int error) {
 	fprintf(stderr, "Duitsers\n");
 	mk2c_lost = 1;
@@ -218,25 +237,6 @@ reconnect_if_needed() {
 			mk2c_lost = 0;
 			flush_dmx2_sendbuf();
 		}
-	}
-}
-
-void
-update_websockets(int dmx1, int dmx2) {
-	if(dmx1) {
-		char *msg = malloc(1 + DMX_CHANNELS);
-		msg[0] = '1';
-		memcpy(msg+1, dmx1_recvbuf, DMX_CHANNELS);
-		broadcast(msg, 1 + DMX_CHANNELS);
-	}
-	if(dmx2) {
-		char *msg = malloc(1 + DMX_CHANNELS);
-		msg[0] = '2';
-		memcpy(msg+1, dmx2_sendbuf, DMX_CHANNELS);
-		broadcast(msg, 1 + DMX_CHANNELS);
-	}
-	if(dmx1 || dmx2) {
-		wakeup_select();
 	}
 }
 
