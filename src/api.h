@@ -75,7 +75,9 @@ struct application_message {
 
 struct mk2_pro_context {
 	struct ftdi_context *ftdic;
-	dmx_updated_callback_t dmx_callback;
+	dmx_update_callback_t update_callback;
+	dmx_commit_callback_t commit_callback;
+	dmx_error_callback_t error_callback;
 	pthread_t readid;
 	unsigned char running;
 };

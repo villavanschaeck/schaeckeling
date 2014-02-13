@@ -465,7 +465,7 @@ main(int argc, char **argv) {
 
 	read_config_file("config.dat");
 
-	mk2c = init_dmx_usb_mk2_pro(dmx_changed);
+	mk2c = init_dmx_usb_mk2_pro(dmx_changed, NULL, NULL);
 	if(mk2c == NULL) {
 		abort(); // XXX
 	}

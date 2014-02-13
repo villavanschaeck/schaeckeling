@@ -249,10 +249,11 @@ read_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 			if (appmsg.data[i + 2] != dmx_state[i]) {
 				fprintf(stderr, "Channel %d changed to value %d\n", i + 1, appmsg.data[i + 2]);
 				/* todo callback */
-				mk2c->dmx_callback(i, dmx_state[i], appmsg.data[i+2]);
+				mk2c->update_callback(i, dmx_state[i], appmsg.data[i+2]);
 				dmx_state[i] = appmsg.data[i+2];
 			}
 		}
+		mk2c->commit_callback();
 	}
 }
 
@@ -341,7 +342,7 @@ set_dmx_recv_mode(struct ftdi_context *ftdic, unsigned char on_change) {
 
 
 struct mk2_pro_context *
-init_dmx_usb_mk2_pro(dmx_updated_callback_t dmx_callback) {
+init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_t commit_callback, dmx_error_callback_t error_callback) {
 	int ret;
 	struct mk2_pro_context *mk2c;
 
@@ -370,7 +371,9 @@ init_dmx_usb_mk2_pro(dmx_updated_callback_t dmx_callback) {
 	ret = enable_second_universe(mk2c->ftdic);
 	ret = set_dmx_recv_mode(mk2c->ftdic, 0);
 
-	mk2c->dmx_callback = dmx_callback;
+	mk2c->update_callback = update_callback;
+	mk2c->commit_callback = commit_callback;
+	mk2c->error_callback = error_callback;
 	mk2c->running = 1;
 	pthread_create(&mk2c->readid, NULL, read_dmx_usb_mk2_pro_runner, mk2c);
 
