@@ -375,7 +375,17 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 	}
 
 	ret = enable_second_universe(mk2c->ftdic);
+	if(ret != 0) {
+		ftdi_free(mk2c->ftdic);
+		free(mk2c);
+		return NULL;
+	}
 	ret = set_dmx_recv_mode(mk2c->ftdic, 0);
+	if(ret != 0) {
+		ftdi_free(mk2c->ftdic);
+		free(mk2c);
+		return NULL;
+	}
 
 	mk2c->update_callback = update_callback;
 	mk2c->commit_callback = commit_callback;
