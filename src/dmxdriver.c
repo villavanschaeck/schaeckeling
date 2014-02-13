@@ -15,11 +15,11 @@ purge_buffers(struct ftdi_context *ftdic) {
 	int ret;
 	ret = ftdi_usb_purge_buffers(ftdic);
 	if (ret == -1) {
-		fprintf(stderr, "purge_buffers: Read buffer purge failed");
+		fprintf(stderr, "purge_buffers: Read buffer purge failed\n");
 	} else if (ret == -2) {
-		fprintf(stderr, "purge_buffers: Write buffer purge failed");
+		fprintf(stderr, "purge_buffers: Write buffer purge failed\n");
 	} else if (ret == -3) {
-		fprintf(stderr, "purge_buffers: USB device unavailable");
+		fprintf(stderr, "purge_buffers: USB device unavailable\n");
 	}
 	return ret;
 }
@@ -30,9 +30,9 @@ purge_receive_buffer(struct ftdi_context *ftdic) {
 	int ret;
 	ret = ftdi_usb_purge_rx_buffer(ftdic);
 	if (ret == -1) {
-		fprintf(stderr, "purge_receive_buffer: Read buffer purge failed");
+		fprintf(stderr, "purge_receive_buffer: Read buffer purge failed\n");
 	} else if (ret == -2) {
-		fprintf(stderr, "purge_receive_buffer: USB device unavailable");
+		fprintf(stderr, "purge_receive_buffer: USB device unavailable\n");
 	}
 	return ret;
 }
@@ -146,7 +146,7 @@ read_data(struct mk2_pro_context *mk2c, unsigned char *buffer, int length) {
 
 	while (bytes_read < length && mk2c->running) {
 		watchdog_dmx_pong = 1;
-		//fprintf(stderr, "Reading data, still %d to read.", length - bytes_read);
+		//fprintf(stderr, "Reading data, still %d to read.\n", length - bytes_read);
 		ret = ftdi_read_data(mk2c->ftdic, buffer + bytes_read, length - bytes_read);
 		if (ret < 0) {
 			read_data_error(ret);
@@ -269,8 +269,7 @@ read_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 
 		for (int i = 0; i < 512; ++i) {
 			if (appmsg.data[i + 2] != dmx_state[i]) {
-				fprintf(stderr, "read_dmx_usb_mk2_pro: Channel %d changed to value %d\n", i + 1, appmsg.data[i + 2]);
-				/* todo callback */
+				//fprintf(stderr, "read_dmx_usb_mk2_pro: Channel %d changed to value %d\n", i + 1, appmsg.data[i + 2]);
 				mk2c->update_callback(i, dmx_state[i], appmsg.data[i+2]);
 				dmx_state[i] = appmsg.data[i+2];
 			}
@@ -333,13 +332,13 @@ enable_second_universe(struct ftdi_context *ftdic) {
 
 	ret = send_msg(ftdic, SET_API_KEY, APIKey, 4);
 	if (ret != 0) {
-		fprintf(stderr, "enable_second_universe: Setting API key failed.");
+		fprintf(stderr, "enable_second_universe: Setting API key failed.\n");
 		return ret;
 	}
 
 	ret = send_msg(ftdic, SET_PORT_ASSIGNMENT, port_set, 2);
 	if (ret != 0) {
-		fprintf(stderr, "enable_second_universe: Setting port assignment failed.");
+		fprintf(stderr, "enable_second_universe: Setting port assignment failed.\n");
 		return ret;
 	}
 
@@ -356,7 +355,7 @@ set_dmx_recv_mode(struct ftdi_context *ftdic, unsigned char on_change) {
 
 	ret = send_msg(ftdic, RECEIVE_DMX_ON_CHANGE_1, &on_change, 1);
 	if (ret != 0) {
-		fprintf(stderr, "set_dmx_recv_mode: Setting receive mode failed.");
+		fprintf(stderr, "set_dmx_recv_mode: Setting receive mode failed.\n");
 	}
 
 	return ret;
@@ -370,7 +369,7 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 
 	mk2c = malloc(sizeof(struct mk2_pro_context));
 	if (mk2c == NULL) {
-		fprintf(stderr, "init_dmx_usb_mk2_pro: Error allocating memory for mk2_pro_context.");
+		fprintf(stderr, "init_dmx_usb_mk2_pro: Error allocating memory for mk2_pro_context.\n");
 		return NULL;
 	}
 
