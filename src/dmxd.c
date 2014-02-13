@@ -231,7 +231,9 @@ dmx_input_completed() {
 static void
 reconnect_if_needed() {
 	if(mk2c_lost) {
-		teardown_dmx_usb_mk2_pro(mk2c);
+		if(mk2c != NULL) {
+			teardown_dmx_usb_mk2_pro(mk2c);
+		}
 		mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
 		if(mk2c != NULL) {
 			mk2c_lost = 0;
