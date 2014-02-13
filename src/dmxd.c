@@ -116,7 +116,6 @@ dmx_changed(int channel, unsigned char old, unsigned char new) {
 			fader_overridden[handlers[channel].data.single_channel.channel] = (new > 0);
 			fader_overrides[handlers[channel].data.single_channel.channel] = new;
 			dmx2_dirty = 1;
-			send_dmx(mk2c, dmx2_sendbuf);
 			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			break;
 		case HANDLE_LED_STATIC:
@@ -130,7 +129,6 @@ dmx_changed(int channel, unsigned char old, unsigned char new) {
 			dmx2_sendbuf[ch] = new;
 			fader_overrides[ch] = new;
 			dmx2_dirty = 1;
-			send_dmx(mk2c, dmx2_sendbuf);
 			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			break;
 		case HANDLE_LED_2CH_INTENSITY:
@@ -456,6 +454,21 @@ read_config_file(char *filename) {
 	return ret;
 }
 
+void
+dmx_input_completed() {
+	pthread_mutex_lock(&dmx2_sendbuf_mtx);
+	if(dmx2_dirty) {
+		send_dmx(mk2c, dmx2_sendbuf);
+		dmx2_dirty = 0;
+	}
+	pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+}
+
+void
+mk2c_error(int error) {
+	// XXX
+}
+
 int
 main(int argc, char **argv) {
 	pthread_mutex_init(&dmx2_sendbuf_mtx, NULL);
@@ -465,7 +478,7 @@ main(int argc, char **argv) {
 
 	read_config_file("config.dat");
 
-	mk2c = init_dmx_usb_mk2_pro(dmx_changed, NULL, NULL);
+	mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
 	if(mk2c == NULL) {
 		abort(); // XXX
 	}

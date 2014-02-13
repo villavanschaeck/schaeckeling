@@ -7,7 +7,7 @@
 
 typedef void (*dmx_update_callback_t) (int, unsigned char, unsigned char);
 typedef void (*dmx_commit_callback_t) ();
-typedef void (*dmx_error_callback_t) ();
+typedef void (*dmx_error_callback_t) (int);
 
 struct mk2_pro_context;
 
