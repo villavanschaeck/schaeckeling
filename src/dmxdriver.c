@@ -16,14 +16,12 @@ purge_buffers(struct ftdi_context *ftdic) {
 	ret = ftdi_usb_purge_buffers(ftdic);
 	if (ret == -1) {
 		fprintf(stderr, "Read buffer purge failed");
-		exit(1);
 	} else if (ret == -2) {
 		fprintf(stderr, "Write buffer purge failed");
-		exit(2);
 	} else if (ret == -3) {
 		fprintf(stderr, "USB device unavailable");
-		exit(3);
 	}
+	return ret;
 }
 
 
@@ -224,6 +222,11 @@ read_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 		if (ret < 0) {
 			fprintf(stderr, "Error occurred during receive. Purging receive buffer and retrying.\n");
 			ret = purge_receive_buffer(mk2c->ftdic);
+			if (ret != 0) {
+				mk2c->running = 0;
+				mk2c->error_callback(-1);
+				pthread_exit(NULL);
+			}
 			continue;
 		}
 
@@ -366,7 +369,10 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 		return NULL;
 	}
 
-	purge_buffers(mk2c->ftdic);
+	ret = purge_buffers(mk2c->ftdic);
+	if (ret != 0) {
+		return NULL;
+	}
 
 	ret = enable_second_universe(mk2c->ftdic);
 	ret = set_dmx_recv_mode(mk2c->ftdic, 0);
