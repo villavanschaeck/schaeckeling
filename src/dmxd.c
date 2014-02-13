@@ -346,7 +346,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 		default:
 			return -1;
 	}
-	if(!dmx1_receiving_changes) {
+	if(!dmx1_receiving_changes && mk2c != NULL) {
 		flush_dmx2_sendbuf();
 	}
 	return processed;
