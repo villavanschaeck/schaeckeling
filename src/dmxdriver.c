@@ -367,6 +367,8 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 	int ret;
 	struct mk2_pro_context *mk2c;
 
+	fprintf(stderr, "init_dmx_usb_mk2_pro: Initializing and connecting.\n");
+
 	mk2c = malloc(sizeof(struct mk2_pro_context));
 	if (mk2c == NULL) {
 		fprintf(stderr, "init_dmx_usb_mk2_pro: Error allocating memory for mk2_pro_context.\n");
@@ -413,6 +415,7 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 		goto error;
 	}
 
+	fprintf(stderr, "init_dmx_usb_mk2_pro: Connected successfully\n");
 	return mk2c;
 
 error:
@@ -425,6 +428,7 @@ error:
 void
 teardown_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	int ret;
+	fprintf(stderr, "teardown_dmx_usb_mk2_pro: starting teardown / disconnect.\n");
 	mk2c->running = 0;
 	ret = pthread_join(mk2c->readid, NULL);
 	if (ret != 0) {
@@ -434,4 +438,5 @@ teardown_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	ftdi_usb_close(mk2c->ftdic);
 	ftdi_free(mk2c->ftdic);
 	free(mk2c);
+	fprintf(stderr, "teardown_dmx_usb_mk2_pro: teardown / disconnect completed.\n");
 }
