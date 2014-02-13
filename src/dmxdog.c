@@ -49,8 +49,8 @@ main(int argc, char **argv) {
 				execve("./dmxmain", argv, environ);
 				err(1, "execve");
 			} else if(pid == -1) {
-				INTERNAL_FAIL("fork");
 				pid = 0;
+				INTERNAL_FAIL("fork");
 			}
 		}
 
@@ -63,8 +63,8 @@ main(int argc, char **argv) {
 			} else if(WIFSIGNALED(status)) {
 				fprintf(stderr, "dmxd was killed by signal %d\n", WTERMSIG(status));
 			}
-			EXTERNAL_FAIL();
 			pid = 0;
+			EXTERNAL_FAIL();
 		}
 
 		got_sigwinch = 0;
@@ -74,7 +74,6 @@ main(int argc, char **argv) {
 			kill(pid, 15);
 			sleep(3);
 			kill(pid, 9);
-			EXTERNAL_FAIL();
 		}
 	}
 }
