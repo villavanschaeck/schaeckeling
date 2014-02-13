@@ -65,8 +65,6 @@ main(int argc, char **argv) {
 			}
 			EXTERNAL_FAIL();
 			pid = 0;
-		} else {
-			INTERNAL_FAIL("not reached");
 		}
 
 		got_sigwinch = 0;
@@ -77,6 +75,7 @@ main(int argc, char **argv) {
 			sleep(3);
 			kill(pid, 9);
 			EXTERNAL_FAIL();
+			pid = 0;
 		}
 	}
 }
