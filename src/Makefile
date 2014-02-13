@@ -24,4 +24,4 @@ dmxdog: dmxdog.c
 	cc -o dmxdog $(CFLAGS) dmxdog.c
 
 clean:
-	rm $(APP) *.o
+	rm $(APP) dmxdog *.o
