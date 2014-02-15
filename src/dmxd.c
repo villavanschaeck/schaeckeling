@@ -285,9 +285,9 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					handlers[ch].action = HANDLE_LED_2CH_INTENSITY;
 					handlers[ch].data.led_2ch.other_input = buf[3]-1;
 					handlers[ch].data.led_2ch.base_channel = buf[4]-1;
-					handlers[buf[3-1]].action = HANDLE_LED_2CH_COLOR;
-					handlers[buf[3-1]].data.led_2ch.other_input = ch;
-					handlers[buf[3-1]].data.led_2ch.base_channel = buf[4]-1;
+					handlers[buf[3]-1].action = HANDLE_LED_2CH_COLOR;
+					handlers[buf[3]-1].data.led_2ch.other_input = ch;
+					handlers[buf[3]-1].data.led_2ch.base_channel = buf[4]-1;
 					break;
 				case 'B':
 					printf("net: Set fader %d to bpm\n", ch);
