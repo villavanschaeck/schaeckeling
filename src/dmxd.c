@@ -199,12 +199,8 @@ dmx1_update_channel(int channel, unsigned char new) {
 		case HANDLE_BPM:
 			printf("[dmx] pthread_mutex_lock(&stepmtx);\n");
 			pthread_mutex_lock(&stepmtx);
-			long new_wait;
-			if(new == 0) {
-				new_wait = 1000000;
-			} else {
-				new_wait = 1000000 * 60 / new;
-			}
+			// BPM range: 30 - 180
+			long new_wait = 1000000 * 60 / (30 + ((180 - 30) * new / 255));
 			if(programma_wait > new_wait) {
 				decrement_timespec(&nextstep, programma_wait - new_wait);
 			}
