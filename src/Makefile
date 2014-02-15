@@ -11,7 +11,7 @@ $(APP): dmxd.o dmxdriver.o colors.o net.o
 dmxdriver.o: dmxdriver.c dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxdriver.c
 
-dmxd.o: dmxd.c dmxdriver.h
+dmxd.o: dmxd.c dmxdriver.h programma.c
 	$(CC) -c $(CFLAGS) dmxd.c
 
 colors.o: colors.c
