@@ -180,10 +180,14 @@ dmx1_update_channel(int channel, unsigned char new) {
 			}
 			int ch = handlers[channel].data.led_2ch.base_channel;
 			pthread_mutex_lock(&dmx2_sendbuf_mtx);
-			convert_color_and_intensity(color, intensity, fader_overrides + ch);
-			memcpy(dmx2_sendbuf + ch, fader_overrides + ch, 3);
-			memset(fader_overridden + ch, color < 9 ? 0 : 1, 3);
-			dmx2_dirty = 1;
+			if(color < 9) {
+				memset(fader_overridden + ch, 0, 3);
+			} else {
+				convert_color_and_intensity(color, intensity, fader_overrides + ch);
+				memcpy(dmx2_sendbuf + ch, fader_overrides + ch, 3);
+				memset(fader_overridden + ch, 1, 3);
+				dmx2_dirty = 1;
+			}
 			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			break;
 		case HANDLE_MASTER:
