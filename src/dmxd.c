@@ -254,39 +254,39 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 	switch(buf[0]) {
 		case 'F':
 			REQUIRE_MIN_LENGTH(3);
-			ch = buf[1];
+			ch = buf[1] - 1;
 			if(handlers[ch].action == HANDLE_LED_2CH_INTENSITY || handlers[ch].action == HANDLE_LED_2CH_COLOR) {
 				handlers[handlers[ch].data.led_2ch.other_input].action = HANDLE_NONE;
 			}
 			switch(buf[2]) {
 				case 'R':
-					printf("net: Set fader %d to default\n", ch);
+					printf("net: Set fader %d to default\n", ch+1);
 					handlers[ch].action = HANDLE_NONE;
 					dmx1_update_channel(ch, dmx1_recvbuf[ch]);
 					break;
 				case 'C':
 					REQUIRE_MIN_LENGTH(4);
-					printf("net: Set fader %d to single channel %d\n", ch, buf[3]);
+					printf("net: Set fader %d to single channel %d\n", ch+1, buf[3]);
 					handlers[ch].action = HANDLE_SINGLE_CHANNEL;
-					handlers[ch].data.single_channel.channel = buf[3];
+					handlers[ch].data.single_channel.channel = buf[3]-1;
 					break;
 				case 'L':
 					REQUIRE_MIN_LENGTH(6);
-					printf("net: Set fader %d to led static [%d/%d-%d]\n", ch, buf[3] + buf[5], buf[3], buf[3] + buf[4]);
+					printf("net: Set fader %d to led static [%d/%d-%d]\n", ch+1, buf[3] + buf[5], buf[3], buf[3] + buf[4]);
 					handlers[ch].action = HANDLE_LED_STATIC;
-					handlers[ch].data.led_static.base_channel = buf[3];
+					handlers[ch].data.led_static.base_channel = buf[3]-1;
 					handlers[ch].data.led_static.num_channels = buf[4];
 					handlers[ch].data.led_static.offset = buf[5];
 					break;
 				case '2':
 					REQUIRE_MIN_LENGTH(5);
-					printf("net: Set fader %d and %d to led 2ch [%d-%d]\n", ch, buf[3], buf[4], buf[4] + 2);
+					printf("net: Set fader %d and %d to led 2ch [%d-%d]\n", ch+1, buf[3]-1, buf[4]-1, buf[4]-1 + 2);
 					handlers[ch].action = HANDLE_LED_2CH_INTENSITY;
-					handlers[ch].data.led_2ch.other_input = buf[3];
-					handlers[ch].data.led_2ch.base_channel = buf[4];
-					handlers[buf[3]].action = HANDLE_LED_2CH_COLOR;
-					handlers[buf[3]].data.led_2ch.other_input = ch;
-					handlers[buf[3]].data.led_2ch.base_channel = buf[4];
+					handlers[ch].data.led_2ch.other_input = buf[3]-1;
+					handlers[ch].data.led_2ch.base_channel = buf[4]-1;
+					handlers[buf[3-1]].action = HANDLE_LED_2CH_COLOR;
+					handlers[buf[3-1]].data.led_2ch.other_input = ch;
+					handlers[buf[3-1]].data.led_2ch.base_channel = buf[4]-1;
 					break;
 				case 'B':
 					printf("net: Set fader %d to bpm\n", ch);
@@ -325,22 +325,22 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					case HANDLE_NONE:
 						break;
 					case HANDLE_SINGLE_CHANNEL:
-						client_printf(c, "F%cC%c", ch, handlers[ch].data.single_channel.channel);
+						client_printf(c, "F%cC%c", ch+1, handlers[ch].data.single_channel.channel+1);
 						break;
 					case HANDLE_LED_STATIC:
-						client_printf(c, "F%cL%c%c%c", ch, handlers[ch].data.led_static.base_channel, handlers[ch].data.led_static.num_channels, handlers[ch].data.led_static.offset);
+						client_printf(c, "F%cL%c%c%c", ch+1, handlers[ch].data.led_static.base_channel+1, handlers[ch].data.led_static.num_channels, handlers[ch].data.led_static.offset);
 						break;
 					case HANDLE_LED_2CH_INTENSITY:
-						client_printf(c, "F%c2%c%c", ch, handlers[ch].data.led_2ch.other_input, handlers[ch].data.led_2ch.base_channel);
+						client_printf(c, "F%c2%c%c", ch+1, handlers[ch].data.led_2ch.other_input+1, handlers[ch].data.led_2ch.base_channel+1);
 						break;
 					case HANDLE_LED_2CH_COLOR:
 						// wordt geconfigt via HANDLE_LED_2CH_INTENSITY
 						break;
 					case HANDLE_MASTER:
-						client_printf(c, "F%cM", ch);
+						client_printf(c, "F%cM", ch+1);
 						break;
 					case HANDLE_BPM:
-						client_printf(c, "F%cB", ch);
+						client_printf(c, "F%cB", ch+1);
 						break;
 				}
 			}
