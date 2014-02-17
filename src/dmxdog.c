@@ -1,4 +1,5 @@
 #define _POSIX_SOURCE
+#define _BSD_SOURCE
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -8,11 +9,15 @@
 #include <stdlib.h>
 #include <err.h>
 #include <stdio.h>
+#include <sysexits.h>
+#include <getopt.h>
 
 #define EXTERNAL_FAIL()	failures++; time(&last_fail); continue
 #define INTERNAL_FAIL(what)	warn(what); failures++; time(&last_fail); continue
 
 extern char **environ;
+extern char *optarg;
+extern int optind, opterr, optopt;
 
 volatile int got_sigwinch = 0;
 
@@ -25,11 +30,38 @@ handle_sigwinch(int sig) {
 int
 main(int argc, char **argv) {
 	pid_t pid = 0, wpid;
-	int status;
+	int opt, status;
 	int failures = 0;
 	time_t last_fail = 0;
 
+	int daemonize = 0;
+
 	signal(SIGWINCH, handle_sigwinch);
+
+	while((opt = getopt(argc, argv, "Dc:")) != -1) {
+		switch(opt) {
+			case 'D':
+				daemonize = 1;
+				break;
+			case 'c':
+				if(chdir(optarg) == -1) {
+					warn("chdir");
+				}
+				break;
+			default:
+				fprintf(stderr, "Usage: %s [-c chdir] [-D]\n", argv[0]);
+				exit(EX_USAGE);
+		}
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	if(daemonize) {
+		if(daemon(1, 0) == -1) {
+			warn("daemon");
+		}
+	}
 
 	while(1) {
 		if(failures > 0) {
