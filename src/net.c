@@ -336,6 +336,7 @@ broadcast(char *buf, size_t size) {
 	struct connection *c;
 	pthread_mutex_lock(&callmtx);
 	if(connhead == NULL) {
+		free(buf);
 		pthread_mutex_unlock(&callmtx);
 		return;
 	}
