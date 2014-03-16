@@ -58,8 +58,7 @@ unsigned char old_recvbuf[DMX_CHANNELS];
 unsigned char dmx2_old_sendbuf[DMX_CHANNELS];
 
 volatile int dmx2_dirty = 0;
-extern int dmx1_receiving_changes;
-extern int midi_receiving_changes;
+extern int receiving_changes;
 
 struct fader_handler handlers[DMX_CHANNELS];
 
@@ -313,7 +312,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 		default:
 			return -1;
 	}
-	if(!dmx1_receiving_changes && mk2c != NULL) {
+	if(!receiving_changes && mk2c != NULL) {
 		flush_dmx2_sendbuf();
 	}
 	return processed;
