@@ -43,7 +43,7 @@ usbmidi_read_data(void *_ctx, const unsigned char *buffer, int len) {
 	midi_print_buf("< ", buffer, cmdlen);
 	switch(buffer[0]) {
 		case 0xb0:
-			// XXX afhandeling
+			midi_changed(buffer[1], buffer[2]);
 			break;
 		case 0xf0:
 			assert(buffer[cmdlen-1] == 0xf7);

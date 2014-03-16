@@ -43,15 +43,21 @@ midi_reader(struct midi_context *ctx) {
 		bufpos += ret;
 
 		int eat;
+		int did_something = 0;
 		do {
 			eat = ctx->eater(ctx, buffer, bufpos);
 			assert(eat >= 0 && eat <= bufpos);
 			if(eat == 0) {
 				break;
 			}
+			did_something = 1;
 			bufpos -= eat;
 			memmove(buffer, buffer + eat, bufpos);
 		} while(eat > 0);
+
+		if(did_something) {
+			midi_input_completed();
+		}
 	}
 }
 

@@ -62,11 +62,15 @@ nanokontrol2_read_data(void *_ctx, const unsigned char *buffer, int len) {
 	switch(buffer[0]) {
 		case 0xb0:
 		case 0xbf:
+#if TEST_NANOKONTROL
 			if(buffer[1] >= 0x00 && buffer[1] < 0x08) {
 				nanokontrol2_set_led(ctx, 0x40 + buffer[1], buffer[2] > 0);
 				nanokontrol2_set_led(ctx, 0x30 + buffer[1], buffer[2] >= 64);
 				nanokontrol2_set_led(ctx, 0x20 + buffer[1], buffer[2] == 0x7f);
 			}
+#else
+			midi_changed(buffer[1], buffer[2]);
+#endif
 			break;
 		case 0xf0:
 			assert(buffer[cmdlen-1] == 0xf7);
