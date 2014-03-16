@@ -106,7 +106,7 @@ init_communications(void) {
 	if (nanokontrol2 == NULL) {
 		fprintf(stderr, "init_communications: init_nanokontrol2 failed.");
 	}
-	usbmidi = init_usbmidi("/dev/snd/midiC1D0"); // TODO make actual differentiation between nanokontrol and generic midi.
+	usbmidi = init_usbmidi("/dev/snd/midi..."); // TODO make actual differentiation between nanokontrol and generic midi.
 	if (usbmidi == NULL) {
 		fprintf(stderr, "init_communications: init_usbmidi failed.");
 		if (nanokontrol2 == NULL) {
