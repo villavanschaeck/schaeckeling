@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "nanokontroldriver.h"
+#include "input.h"
 
 void
 nanokontrol2_set_led(struct nanokontrol2_context *ctx, int which, int value) {

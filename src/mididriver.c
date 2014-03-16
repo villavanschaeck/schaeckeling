@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mididriver.h"
+#include "input.h"
 
 void
 midi_print_buf(const char *prefix, const unsigned char *buf, int len) {

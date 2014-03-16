@@ -5,8 +5,8 @@ APP=dmxmain
 
 all: $(APP) dmxdog
 
-$(APP): dmxd.o dmxdriver.o input.o colors.o net.o
-	$(CC) -o $(APP) dmxd.o dmxdriver.o input.o colors.o net.o $(LDFLAGS)
+$(APP): dmxd.o dmxdriver.o input.o colors.o mididriver.o nanokontroldriver.o net.o usbmididriver.o
+	$(CC) -o $(APP) dmxd.o dmxdriver.o input.o colors.o mididriver.o nanokontroldriver.o net.o usbmididriver.o $(LDFLAGS)
 
 dmxdriver.o: dmxdriver.c dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxdriver.c
@@ -30,7 +30,7 @@ usbmididriver.o: usbmididriver.c usbmididriver.h
 	$(CC) -c $(CFLAGS) usbmididriver.c
 
 nanokontroldriver.o: nanokontroldriver.c mididriver.h
-	$(CC) -c $(CFLAGS) nanokontroldriver.c -DTEST_NANOKONTROL
+	$(CC) -c $(CFLAGS) nanokontroldriver.c
 
 dmxdog: dmxdog.c
 	cc -o dmxdog $(CFLAGS) dmxdog.c

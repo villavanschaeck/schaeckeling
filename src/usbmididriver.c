@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "usbmididriver.h"
+#include "input.h"
 
 static int
 usbmidi_read_data(void *_ctx, const unsigned char *buffer, int len) {

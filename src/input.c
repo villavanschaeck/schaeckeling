@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include "dmxdriver.h"
 #include "dmxd.h"
+#include "nanokontroldriver.h"
 
 struct mk2_pro_context *mk2c;
+struct nanokontrol2_context *nanokontrol2;
 volatile int mk2c_lost = 0;
 volatile int nanokontrol_lost = 0;
 volatile int midi_lost = 0;
@@ -95,6 +97,7 @@ init_communications(void) {
 	if(mk2c == NULL) {
 		abort(); // XXX
 	}
+	nanokontrol2 = init_nanokontrol2("/dev/snd/midiC1D0");
 	// Fix nanokontrol and usb-midi.
 	return 0;
 }
