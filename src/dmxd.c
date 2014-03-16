@@ -24,7 +24,7 @@
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM };
+enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN};
 
 struct fader_handler {
 	enum handle_action action;
@@ -60,7 +60,9 @@ volatile int dmxout_dirty = 0;
 unsigned char fader_overrides[DMX_CHANNELS];
 unsigned char fader_overridden[DMX_CHANNELS];
 
-int master_divider = 1;
+int master_intensity = 255;
+int program_intensity = 255;
+int program_running = 1;
 long programma_wait = 1000000;
 struct timespec nextstep;
 
@@ -105,6 +107,12 @@ dmxindex_to_channel(int channel) {
 	return channel+1;
 }
 
+static unsigned char
+apply_intensity(unsigned char in, unsigned char intensity) {
+	int tmp = in * intensity;
+	return tmp / 255;
+}
+
 void
 error_step(void) {
 	pthread_mutex_lock(&stepmtx);
@@ -146,7 +154,7 @@ flush_dmxout_sendbuf(void) {
 }
 
 void
-update_input(int input, unsigned char new) {
+update_input(inputidx_t input, unsigned char new) {
 	unsigned char intensity, color;
 	dmxchannel_t dmxch;
 	int dmxidx;
@@ -159,9 +167,9 @@ update_input(int input, unsigned char new) {
 		case HANDLE_SINGLE_CHANNEL:
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			dmxidx = dmx_channel_to_dmxindex(handlers[input].data.single_channel.channel);
-			dmxout_sendbuf[dmxidx] = new;
 			fader_overridden[dmxidx] = (new > 0);
-			fader_overrides[dmxidx] = new;
+			fader_overrides[dmxidx] = apply_intensity(new, master_intensity);
+			dmxout_sendbuf[dmxidx] = fader_overridden[dmxidx];
 			dmxout_dirty = 1;
 			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 			break;
@@ -180,7 +188,7 @@ update_input(int input, unsigned char new) {
 			if(color < 9) {
 				memset(fader_overridden + dmxidx, 0, 3);
 			} else {
-				convert_color_and_intensity(color, intensity, fader_overrides + dmxidx);
+				convert_color_and_intensity(color, apply_intensity(intensity, master_intensity), fader_overrides + dmxidx);
 				memcpy(dmxout_sendbuf + dmxidx, fader_overrides + dmxidx, 3);
 				memset(fader_overridden + dmxidx, 1, 3);
 				dmxout_dirty = 1;
@@ -189,7 +197,13 @@ update_input(int input, unsigned char new) {
 			break;
 		case HANDLE_MASTER:
 			pthread_mutex_lock(&stepmtx);
-			master_divider = 256 - new;
+			master_intensity = new;
+			pthread_cond_signal(&stepcond);
+			pthread_mutex_unlock(&stepmtx);
+			return;
+		case HANDLE_CHASE:
+			pthread_mutex_lock(&stepmtx);
+			program_intensity = new;
 			pthread_cond_signal(&stepcond);
 			pthread_mutex_unlock(&stepmtx);
 			return;
@@ -205,6 +219,18 @@ update_input(int input, unsigned char new) {
 			printf("[dmx] pthread_cond_signal(&stepcond);\n");
 			pthread_cond_signal(&stepcond);
 			printf("[dmx] pthread_mutex_unlock(&stepmtx);\n");
+			pthread_mutex_unlock(&stepmtx);
+			return;
+		case HANDLE_RUN:
+			if(new < 64) {
+				break;
+			}
+			pthread_mutex_lock(&stepmtx);
+			program_running = !program_running;
+			if(program_running) {
+				clock_gettime(CLOCK_REALTIME, &nextstep);
+			}
+			pthread_cond_signal(&stepcond);
 			pthread_mutex_unlock(&stepmtx);
 			return;
 	}
@@ -261,6 +287,14 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					printf("net: Set %s channel %d to master\n", type, input_number);
 					handlers[iidx].action = HANDLE_MASTER;
 					break;
+				case 'P':
+					printf("net: Set %s channel %d to chase (program intensity)\n", type, input_number);
+					handlers[iidx].action = HANDLE_CHASE;
+					break;
+				case 'R':
+					printf("net: Set %s channel %d to program play/pause\n", type, input_number);
+					handlers[iidx].action = HANDLE_RUN;
+					break;
 				default:
 					return -1;
 			}
@@ -304,8 +338,14 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					case HANDLE_MASTER:
 						client_printf(c, "%sM", chdesc);
 						break;
+					case HANDLE_CHASE:
+						client_printf(c, "%sP", chdesc);
+						break;
 					case HANDLE_BPM:
 						client_printf(c, "%sB", chdesc);
+						break;
+					case HANDLE_RUN:
+						client_printf(c, "%sR", chdesc);
 						break;
 				}
 			}
@@ -331,7 +371,7 @@ prog_runner(void *dummy) {
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			printf("program_step: ");
 			for(dmxidx = 0; programma_channels > dmxidx; dmxidx++) {
-				dmxout_sendbuf[dmxidx] = master_divider ? (fader_overridden[dmxidx] ? fader_overrides[dmxidx] : programma[step][dmxidx]) / master_divider : 0;
+				dmxout_sendbuf[dmxidx] = apply_intensity(fader_overridden[dmxidx] ? fader_overrides[dmxidx] : programma[step][dmxidx], apply_intensity(program_intensity, master_intensity));
 				printf("%d: %03d; ", dmxindex_to_channel(dmxidx), dmxout_sendbuf[dmxidx]);
 			}
 			printf("\n");
@@ -349,7 +389,9 @@ prog_runner(void *dummy) {
 			int res = pthread_cond_timedwait(&stepcond, &stepmtx, &nextstep);
 			if(res == ETIMEDOUT) {
 				increment_timespec(&nextstep, programma_wait);
-				step++;
+				if(program_running) {
+					step++;
+				}
 			}
 			watchdog_prog_pong = 1;
 		}
