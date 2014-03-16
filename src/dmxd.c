@@ -442,7 +442,7 @@ reset_vars() {
 	pthread_mutex_lock(&dmxout_sendbuf_mtx);
 	for(iidx = 0; INPUT_CHANNELS > iidx; iidx++) {
 		handlers[iidx].action = HANDLE_NONE;
-		inputbuf[iidx] = 0;
+		inputbuf[iidx] = 255;
 	}
 	for(dmxidx = 0; DMX_CHANNELS > dmxidx; dmxidx++) {
 		dmxout_sendbuf[dmxidx] = 0;
