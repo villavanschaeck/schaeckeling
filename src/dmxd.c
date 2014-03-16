@@ -24,7 +24,7 @@
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM };
+enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE };
 
 struct fader_handler {
 	enum handle_action action;
@@ -61,6 +61,7 @@ unsigned char fader_overrides[DMX_CHANNELS];
 unsigned char fader_overridden[DMX_CHANNELS];
 
 int master_intensity = 255;
+int program_intensity = 255;
 long programma_wait = 1000000;
 struct timespec nextstep;
 
@@ -199,6 +200,12 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_cond_signal(&stepcond);
 			pthread_mutex_unlock(&stepmtx);
 			return;
+		case HANDLE_CHASE:
+			pthread_mutex_lock(&stepmtx);
+			program_intensity = new;
+			pthread_cond_signal(&stepcond);
+			pthread_mutex_unlock(&stepmtx);
+			return;
 		case HANDLE_BPM:
 			printf("[dmx] pthread_mutex_lock(&stepmtx);\n");
 			pthread_mutex_lock(&stepmtx);
@@ -267,6 +274,10 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					printf("net: Set %s channel %d to master\n", type, input_number);
 					handlers[iidx].action = HANDLE_MASTER;
 					break;
+				case 'P':
+					printf("net: Set %s channel %d to chase (program intensity)\n", type, input_number);
+					handlers[iidx].action = HANDLE_CHASE;
+					break;
 				default:
 					return -1;
 			}
@@ -310,6 +321,9 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					case HANDLE_MASTER:
 						client_printf(c, "%sM", chdesc);
 						break;
+					case HANDLE_CHASE:
+						client_printf(c, "%sP", chdesc);
+						break;
 					case HANDLE_BPM:
 						client_printf(c, "%sB", chdesc);
 						break;
@@ -337,7 +351,7 @@ prog_runner(void *dummy) {
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			printf("program_step: ");
 			for(dmxidx = 0; programma_channels > dmxidx; dmxidx++) {
-				dmxout_sendbuf[dmxidx] = apply_intensity(fader_overridden[dmxidx] ? fader_overrides[dmxidx] : programma[step][dmxidx], master_intensity);
+				dmxout_sendbuf[dmxidx] = apply_intensity(fader_overridden[dmxidx] ? fader_overrides[dmxidx] : programma[step][dmxidx], apply_intensity(program_intensity, master_intensity));
 				printf("%d: %03d; ", dmxindex_to_channel(dmxidx), dmxout_sendbuf[dmxidx]);
 			}
 			printf("\n");
