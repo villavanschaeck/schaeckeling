@@ -16,6 +16,13 @@ nanokontrol2_set_led(struct nanokontrol2_context *ctx, int which, int value) {
 	midi_send_buf(&ctx->midictx, msg, 3);
 }
 
+static void
+nanokontrol2_switch_mode(struct nanokontrol2_context *ctx, int mode) {
+	unsigned char buf[] = { 0xf0, 0x42, 0x40, 0x00, 0x01, 0x13, 0x00, 0x00, 0x00, mode, 0xf7 };
+	midi_send_buf(&ctx->midictx, buf, 11);
+	ctx->requested_mode = mode;
+}
+
 static int
 nanokontrol2_read_data(void *_ctx, const unsigned char *buffer, int len) {
 	struct nanokontrol2_context *ctx = _ctx;
@@ -132,13 +139,6 @@ void
 teardown_nanokontrol2(struct nanokontrol2_context *ctx) {
 	teardown_midi(&ctx->midictx);
 	free(ctx);
-}
-
-static void
-nanokontrol2_switch_mode(struct nanokontrol2_context *ctx, int mode) {
-	unsigned char buf[] = { 0xf0, 0x42, 0x40, 0x00, 0x01, 0x13, 0x00, 0x00, 0x00, mode, 0xf7 };
-	midi_send_buf(&ctx->midictx, buf, 11);
-	ctx->requested_mode = mode;
 }
 
 void
