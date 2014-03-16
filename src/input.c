@@ -133,6 +133,9 @@ void
 set_feedback_running(int running) {
 	if(nanokontrol2 != NULL) {
 		nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_PLAY, running * 127);
+		if(!running) {
+			nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_CYCLE, 0);
+		}
 	}
 }
 
