@@ -3,6 +3,12 @@ CFLAGS=-Wall -g -std=c99
 LDFLAGS=-lpthread -lftdi -lrt
 APP=dmxmain
 
+nanokontrol: nanokontroldriver.o
+	$(CC) -o nanokontrol nanokontroldriver.o $(LDFLAGS)
+
+nanokontroldriver.o: nanokontroldriver.c
+	$(CC) -c $(CFLAGS) nanokontroldriver.c
+
 all: $(APP) dmxdog
 
 $(APP): dmxd.o dmxdriver.o colors.o net.o
