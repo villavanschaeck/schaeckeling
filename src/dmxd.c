@@ -185,7 +185,7 @@ update_input(inputidx_t input, unsigned char new) {
 			dmxch = handlers[input].data.led_2ch.base_channel;
 			dmxidx = dmx_channel_to_dmxindex(dmxch);
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
-			if(color < 9) {
+			if(color >= 252) {
 				memset(fader_overridden + dmxidx, 0, 3);
 			} else {
 				convert_color_and_intensity(color, apply_intensity(intensity, master_intensity), fader_overrides + dmxidx);
