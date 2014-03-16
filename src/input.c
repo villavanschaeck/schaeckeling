@@ -37,7 +37,8 @@ midi_input_completed(void) {
 
 void
 dmx_changed(dmxchannel_t channel, unsigned char old, unsigned char new) {
-	assert(channel > 0 && channel <= DMX_CHANNELS);
+	assert(channel >= 0 && channel < DMX_CHANNELS);
+	++channel;
 	fprintf(stdout, "dmx_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
 	receiving_changes = 1;
 	update_input(dmx_to_input_index(channel), new);
