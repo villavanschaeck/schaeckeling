@@ -18,7 +18,7 @@ midi_changed(int channel, unsigned char value) {
 	assert(channel >= 0 && channel < MIDI_CHANNELS);
 	fprintf(stdout, "midi_changed(%d, %d)\n", channel, (int)value);
 	receiving_changes = 1;
-	update_channel(channel + DMX_CHANNELS, value);
+	update_channel(channel, value);
 }
 
 
@@ -35,7 +35,7 @@ dmx_changed(int channel, unsigned char old, unsigned char new) {
 	assert(channel >= 0 && channel < DMX_CHANNELS);
 	fprintf(stdout, "dmx_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
 	receiving_changes = 1;
-	update_channel(channel, new);
+	update_channel(channel + MIDI_CHANNELS, new);
 }
 
 
