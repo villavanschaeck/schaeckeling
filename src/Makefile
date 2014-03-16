@@ -10,7 +10,7 @@ mididriver.o: mididriver.c mididriver.h
 	$(CC) -c $(CFLAGS) mididriver.c
 
 nanokontroldriver.o: nanokontroldriver.c mididriver.h
-	$(CC) -c $(CFLAGS) nanokontroldriver.c
+	$(CC) -c $(CFLAGS) nanokontroldriver.c -DTEST_NANOKONTROL
 
 all: $(APP) dmxdog
 

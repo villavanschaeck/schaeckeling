@@ -140,6 +140,7 @@ nanokontrol2_ask_status(struct nanokontrol2_context *ctx) {
 	midi_send_buf(&ctx->midictx, buf, 11);
 }
 
+#if TEST_NANOKONTROL
 int
 main(int argc, char **argv) {
 	struct nanokontrol2_context *ctx;
@@ -150,9 +151,10 @@ main(int argc, char **argv) {
 	nanokontrol2_ask_status(ctx);
 	nanokontrol2_switch_mode(ctx, NANOKONTROL2_MODE_NATIVE);
 
-	pthread_join(ctx->thr, NULL);
+	pthread_join(ctx->midictx.thr, NULL);
 
 	teardown_nanokontrol2(ctx);
 
 	return 0;
 }
+#endif
