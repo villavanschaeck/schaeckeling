@@ -102,6 +102,9 @@ init_communications(void) {
 
 int
 send_dmx(unsigned char *dmxbytes) {
-        // FIXME do something useful instead of passing on.
-	return mk2_send_dmx(mk2c, dmxbytes);
+	int ret = -2;
+	if (mk2c != NULL) {
+		ret = mk2_send_dmx(mk2c, dmxbytes);
+	}
+	return ret;
 }

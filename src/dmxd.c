@@ -323,7 +323,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 		default:
 			return -1;
 	}
-	if(!receiving_changes /*&& mk2c != NULL*/) { // FIXME safe uncomment?
+	if(!receiving_changes) {
 		flush_dmx2_sendbuf();
 	}
 	return processed;
