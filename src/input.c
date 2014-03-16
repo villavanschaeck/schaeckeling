@@ -3,9 +3,11 @@
 #include "dmxdriver.h"
 #include "dmxd.h"
 #include "nanokontroldriver.h"
+#include "usbmididriver.h"
 
 struct mk2_pro_context *mk2c;
 struct nanokontrol2_context *nanokontrol2;
+struct usbmidi_context *usbmidi;
 volatile int mk2c_lost = 0;
 volatile int nanokontrol_lost = 0;
 volatile int midi_lost = 0;
@@ -96,10 +98,21 @@ reconnect_if_needed(void) {
 int
 init_communications(void) {
 	mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
-	if(mk2c == NULL) {
+	if (mk2c == NULL) {
 		abort(); // XXX
 	}
 	nanokontrol2 = init_nanokontrol2("/dev/snd/midiC1D0");
+	if (nanokontrol2 == NULL) {
+		fprintf(stderr, "init_communications: init_nanokontrol2 failed.");
+	}
+	usbmidi = init_usbmidi("/dev/snd/midiC1D0"); // TODO make actual differentiation between nanokontrol and generic midi.
+	if (usbmidi == NULL) {
+		fprintf(stderr, "init_communications: init_usbmidi failed.");
+		if (nanokontrol2 == NULL) {
+			fprintf(stderr, "No input devices available. Defaulting to preprogrammed output.");
+		}
+	}
+
 	// Fix nanokontrol and usb-midi.
 	return 0;
 }

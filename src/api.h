@@ -33,6 +33,7 @@
 #define MSG_END_CODE 0xE7 
 #define OFFSET 0xFF
 #define MSG_HEADER_LENGTH 4
+#define MSG_END_CODE_LENGTH 1
 #define BYTE_LENGTH 8
 #define HEADER_RDM_LABEL 5
 #define NO_RESPONSE 0

@@ -64,55 +64,74 @@ write_data(struct ftdi_context *ftdic, unsigned char *buffer, int length) {
 	return bytes_written;
 }
 
+/*
+ * prepare_msg_buffer: counterpart to send_msg. Used to prepare a message buffer for
+ * send_msg. Allocates enough bytes for the message header, message_size bytes, and 
+ * the message_end_code. Then returns a pointer INSIDE THE BUFFER, PAST THE HEADER.
+ * Also be careful of off-by-one errors, the final byte WILL be overwritten by send_msg.
+ */
+static unsigned char *
+prepare_msg_buffer(int message_size) {
+	unsigned char *buffer = (unsigned char *) malloc(MSG_HEADER_LENGTH + message_size + MSG_END_CODE_LENGTH);
+	return buffer + MSG_HEADER_LENGTH;
+}
+
+/*
+ * send_msg: counterpart to prepare_msg_buffer. Can only be called with a message buffer
+ * received from prepare_msg_buffer. If you fail to comply, behaviour WILL BE UNDEFINED.
+ * Rocks may fall. Pigs may fly. The earth may be torn asunder. Russia may invade your home country.
+ *
+ * After calling send_msg, the buffer passed in has been freed.
+ */
 static int
-send_msg(struct ftdi_context *ftdic, int label, unsigned char *data, int length) {
-	unsigned char end_code = MSG_END_CODE;
+send_msg(struct ftdi_context *ftdic, int label, unsigned char *prepared_buffer, int length) {
 	int ret = 0;
 
-	// Form Packet Header
-	unsigned char header[MSG_HEADER_LENGTH];
-	header[0] = MSG_START_CODE;
-	header[1] = label;
-	header[2] = length & OFFSET;
-	header[3] = length >> BYTE_LENGTH;
+	// Decrease *prepared_buffer to "reclaim" the space allocated for the header.
+	prepared_buffer -= MSG_HEADER_LENGTH;
 
-	// Write The Header
-	ret = write_data(ftdic, header, MSG_HEADER_LENGTH);
-	if (ret != MSG_HEADER_LENGTH) {
-		fprintf(stderr, "send_msg: Unexpected number of bytes written: %d\n", ret);
-		return -1;
-	}
+	// Form Packet Header
+	prepared_buffer[0] = MSG_START_CODE;
+	prepared_buffer[1] = label;
+	prepared_buffer[2] = length & OFFSET;
+	prepared_buffer[3] = length >> BYTE_LENGTH;
+
+	// Add end code
+	prepared_buffer[MSG_HEADER_LENGTH + length] = MSG_END_CODE;
 
 	// Write The Data
-	ret = write_data(ftdic, data, length);
+	ret = write_data(ftdic, prepared_buffer, MSG_HEADER_LENGTH + length + MSG_END_CODE_LENGTH);
 	if (ret != length) {
 		fprintf(stderr, "send_msg: Unexpected number of bytes written: %d\n", ret);
 		return -1;
 	}
 
-	// Write End Code
-	ret = write_data(ftdic, &end_code, 1);
-	if (ret != 1) {
-		fprintf(stderr, "send_msg: Unexpected number of bytes written: %d\n", ret);
-		return -1;
-	}
+	free(prepared_buffer);
 
 	return 0;
 }
 
 
+/*
+ * Send DMX data from the provided buffer dmxbytes.
+ * Buffer HAS TO BE 512 bytes (or longer, only 512 bytes will be used).
+ * DMX channels are 0-based in the buffer (DMX channel 1 == dmxbytes[0]).
+ */
 int
 mk2_send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes) {
-	unsigned char my_dmx[513];
 	int ret;
-	
-	memcpy(my_dmx + 1, dmxbytes, 512);
+	unsigned char *messagebuffer = prepare_msg_buffer(1 + DMX_PACKET_SIZE);
+	if (messagebuffer == NULL) {
+		fprintf(stderr, "send_dmx: Failed to allocate space for prepared buffer.\n");
+		return -2;
+	}
 
 	// First byte has to be 0
-	my_dmx[0] = 0;
+	messagebuffer[0] = 0;
+	memcpy(messagebuffer + 1, dmxbytes, DMX_PACKET_SIZE);
 
 	// send the array here
-	ret = send_msg(mk2c->ftdic, SEND_DMX_2, my_dmx, 513);
+	ret = send_msg(mk2c->ftdic, SEND_DMX_2, messagebuffer, 1 + DMX_PACKET_SIZE);
 	if (ret < 0)
 	{
 		fprintf(stderr, "send_dmx: Failed to send DMX\n");
