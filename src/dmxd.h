@@ -10,3 +10,4 @@ int send_dmx(unsigned char *dmxbytes);
 void reconnect_if_needed(void);
 int init_communications(void);
 void set_feedback_running(int);
+void set_feedback_step();
