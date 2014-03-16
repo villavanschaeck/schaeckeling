@@ -392,6 +392,7 @@ prog_runner(void *dummy) {
 				increment_timespec(&nextstep, programma_wait);
 				if(program_running) {
 					step++;
+					set_feedback_step();
 				}
 			}
 			watchdog_prog_pong = 1;
