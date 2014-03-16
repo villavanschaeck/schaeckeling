@@ -5,14 +5,17 @@ APP=dmxmain
 
 all: $(APP) dmxdog
 
-$(APP): dmxd.o dmxdriver.o colors.o net.o
-	$(CC) -o $(APP) dmxd.o dmxdriver.o colors.o net.o $(LDFLAGS)
+$(APP): dmxd.o dmxdriver.o input.o colors.o net.o
+	$(CC) -o $(APP) dmxd.o dmxdriver.o input.o colors.o net.o $(LDFLAGS)
 
 dmxdriver.o: dmxdriver.c dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxdriver.c
 
-dmxd.o: dmxd.c dmxdriver.h programma.c
+dmxd.o: dmxd.c input.o dmxdriver.h programma.c
 	$(CC) -c $(CFLAGS) dmxd.c
+
+input.o: input.c dmxdriver.h
+	$(CC) -c $(CFLAGS) input.c
 
 colors.o: colors.c
 	$(CC) -c $(CFLAGS) colors.c

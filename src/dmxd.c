@@ -20,8 +20,8 @@
 #include "dmxdriver.h"
 #include "net.h"
 #include "colors.h"
+#include "dmxd.h"
 
-#define DMX_CHANNELS 512
 
 enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_STATIC, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM };
 
@@ -50,6 +50,8 @@ pthread_cond_t stepcond;
 int watchdog_dmx_pong = 0;
 int watchdog_net_pong = 0;
 int watchdog_prog_pong = 0;
+
+extern int mk2c_lost; // FIXME define a cleaner way of reconnecting. dmxd.c shouldn't care *what* has been lost.
 
 unsigned char recvbuf[DMX_CHANNELS];
 unsigned char dmx2_sendbuf[DMX_CHANNELS];
@@ -98,6 +100,15 @@ decrement_timespec(struct timespec *ts, long sub) {
 	assert(ts->tv_nsec >= 0);
 }
 
+
+void
+error_step(void) {
+	pthread_mutex_lock(&stepmtx);
+	pthread_cond_signal(&stepcond);
+	pthread_mutex_unlock(&stepmtx);
+}
+
+
 void
 update_websockets(int dmx1, int dmx2) {
 	if(dmx1) {
@@ -118,10 +129,10 @@ update_websockets(int dmx1, int dmx2) {
 }
 
 void
-flush_dmx2_sendbuf() {
+flush_dmx2_sendbuf(void) {
 	pthread_mutex_lock(&dmx2_sendbuf_mtx);
 	if(dmx2_dirty) {
-		send_dmx(mk2c, dmx2_sendbuf);
+		send_dmx(dmx2_sendbuf);
 		update_websockets(1, 0);
 		dmx2_dirty = 0;
 	}
@@ -312,7 +323,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 		default:
 			return -1;
 	}
-	if(!receiving_changes && mk2c != NULL) {
+	if(!receiving_changes /*&& mk2c != NULL*/) { // FIXME safe uncomment?
 		flush_dmx2_sendbuf();
 	}
 	return processed;
@@ -339,7 +350,7 @@ prog_runner(void *dummy) {
 				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 				reconnect_if_needed();
 			} else {
-				send_dmx(mk2c, dmx2_sendbuf);
+				send_dmx(dmx2_sendbuf);
 				update_websockets(1, 0);
 				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
 			}
@@ -457,7 +468,7 @@ main(int argc, char **argv) {
 	pthread_create(&netthr, NULL, net_runner, NULL);
 	pthread_create(&progthr, NULL, prog_runner, NULL);
 
-	send_dmx(mk2c, dmx2_sendbuf);
+	send_dmx(dmx2_sendbuf);
 
 	watchdog_runner(NULL);
 

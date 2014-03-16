@@ -102,7 +102,7 @@ send_msg(struct ftdi_context *ftdic, int label, unsigned char *data, int length)
 
 
 int
-send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes) {
+mk2_send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes) {
 	unsigned char my_dmx[513];
 	int ret;
 	
