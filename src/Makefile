@@ -6,7 +6,7 @@ APP=dmxmain
 all: $(APP) dmxdog
 
 $(APP): dmxd.o dmxdriver.o colors.o net.o
-	$(CC) -o $(APP) $(LDFLAGS) dmxd.o dmxdriver.o colors.o net.o
+	$(CC) -o $(APP) dmxd.o dmxdriver.o colors.o net.o $(LDFLAGS)
 
 dmxdriver.o: dmxdriver.c dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxdriver.c
