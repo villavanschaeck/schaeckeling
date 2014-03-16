@@ -7,16 +7,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mididriver.h"
-
-#define NANOKONTROL2_MODE_NORMAL	0
-#define NANOKONTROL2_MODE_NATIVE	1
-
-struct nanokontrol2_context {
-	struct midi_context midictx;
-	int active_mode;
-	int requested_mode;
-};
+#include "nanokontroldriver.h"
 
 void
 nanokontrol2_set_led(struct nanokontrol2_context *ctx, int which, int value) {
@@ -159,14 +150,7 @@ main(int argc, char **argv) {
 	nanokontrol2_ask_status(ctx);
 	nanokontrol2_switch_mode(ctx, NANOKONTROL2_MODE_NATIVE);
 
-/*
-	sleep(3);
-	unsigned char rstbuf[] = { 0xf0, 0x42, 0x40, 0x00, 0x01, 0x13, 0x00, 0xff, 0x00, 0x00, 0xf7 };
-	midi_send_buf(&ctx->midictx, rstbuf, 11);
-*/
-
-	//pthread_join(ctx->thr, NULL);
-	sleep(5);
+	pthread_join(ctx->thr, NULL);
 
 	teardown_nanokontrol2(ctx);
 
