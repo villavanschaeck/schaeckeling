@@ -43,9 +43,6 @@ struct fader_handler {
 	} data;
 };
 
-struct mk2_pro_context *mk2c;
-volatile int mk2c_lost = 0;
-
 pthread_t netthr, progthr, watchdogthr;
 pthread_mutex_t dmx2_sendbuf_mtx, stepmtx;
 pthread_cond_t stepcond;
@@ -54,14 +51,15 @@ int watchdog_dmx_pong = 0;
 int watchdog_net_pong = 0;
 int watchdog_prog_pong = 0;
 
-unsigned char dmx1_recvbuf[DMX_CHANNELS];
+unsigned char recvbuf[DMX_CHANNELS];
 unsigned char dmx2_sendbuf[DMX_CHANNELS];
 
-unsigned char dmx1_old_recvbuf[DMX_CHANNELS];
+unsigned char old_recvbuf[DMX_CHANNELS];
 unsigned char dmx2_old_sendbuf[DMX_CHANNELS];
 
 volatile int dmx2_dirty = 0;
-volatile int dmx1_receiving_changes = 0;
+extern int dmx1_receiving_changes;
+extern int midi_receiving_changes;
 
 struct fader_handler handlers[DMX_CHANNELS];
 
@@ -106,7 +104,7 @@ update_websockets(int dmx1, int dmx2) {
 	if(dmx1) {
 		char *msg = malloc(1 + DMX_CHANNELS);
 		msg[0] = '1';
-		memcpy(msg+1, dmx1_recvbuf, DMX_CHANNELS);
+		memcpy(msg+1, recvbuf, DMX_CHANNELS);
 		broadcast(msg, 1 + DMX_CHANNELS);
 	}
 	if(dmx2) {
@@ -121,15 +119,6 @@ update_websockets(int dmx1, int dmx2) {
 }
 
 void
-mk2c_error(int error) {
-	fprintf(stderr, "Duitsers\n");
-	mk2c_lost = 1;
-	pthread_mutex_lock(&stepmtx);
-	pthread_cond_signal(&stepcond);
-	pthread_mutex_unlock(&stepmtx);
-}
-
-void
 flush_dmx2_sendbuf() {
 	pthread_mutex_lock(&dmx2_sendbuf_mtx);
 	if(dmx2_dirty) {
@@ -141,9 +130,11 @@ flush_dmx2_sendbuf() {
 }
 
 void
-dmx1_update_channel(int channel, unsigned char new) {
+update_channel(int channel, unsigned char new) {
 	int ch;
 	unsigned char intensity, color;
+
+	recvbuf[channel] = new;
 
 	switch(handlers[channel].action) {
 		case HANDLE_NONE:
@@ -173,9 +164,9 @@ dmx1_update_channel(int channel, unsigned char new) {
 		case HANDLE_LED_2CH_COLOR:
 			if(handlers[channel].action == HANDLE_LED_2CH_INTENSITY) {
 				intensity = new;
-				color = dmx1_recvbuf[handlers[channel].data.led_2ch.other_input];
+				color = recvbuf[handlers[channel].data.led_2ch.other_input];
 			} else {
-				intensity = dmx1_recvbuf[handlers[channel].data.led_2ch.other_input];
+				intensity = recvbuf[handlers[channel].data.led_2ch.other_input];
 				color = new;
 			}
 			int ch = handlers[channel].data.led_2ch.base_channel;
@@ -213,35 +204,8 @@ dmx1_update_channel(int channel, unsigned char new) {
 	}
 }
 
-void
-dmx_changed(int channel, unsigned char old, unsigned char new) {
-	assert(channel >= 0 && channel < DMX_CHANNELS);
-	printf("dmx_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
-	dmx1_recvbuf[channel] = new;
-	dmx1_receiving_changes = 1;
-	dmx1_update_channel(channel, new);
-}
 
-void
-dmx_input_completed() {
-	dmx1_receiving_changes = 0;
-	flush_dmx2_sendbuf();
-	update_websockets(0, 1);
-}
 
-static void
-reconnect_if_needed() {
-	if(mk2c_lost) {
-		if(mk2c != NULL) {
-			teardown_dmx_usb_mk2_pro(mk2c);
-		}
-		mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
-		if(mk2c != NULL) {
-			mk2c_lost = 0;
-			flush_dmx2_sendbuf();
-		}
-	}
-}
 
 int
 handle_data(struct connection *c, char *buf_s, size_t len) {
@@ -263,7 +227,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 				case 'R':
 					printf("net: Set fader %d to default\n", ch+1);
 					handlers[ch].action = HANDLE_NONE;
-					dmx1_update_channel(ch, dmx1_recvbuf[ch]);
+					update_channel(ch, recvbuf[ch]);
 					break;
 				case 'C':
 					REQUIRE_MIN_LENGTH(4);
@@ -434,9 +398,9 @@ reset_vars() {
 	pthread_mutex_lock(&dmx2_sendbuf_mtx);
 	for(ch = 0; DMX_CHANNELS > ch; ch++) {
 		handlers[ch].action = HANDLE_NONE;
-		dmx1_recvbuf[ch] = 0;
+		recvbuf[ch] = 0;
 		dmx2_sendbuf[ch] = 0;
-		dmx1_old_recvbuf[ch] = 0;
+		old_recvbuf[ch] = 0;
 		dmx2_old_sendbuf[ch] = 0;
 		fader_overridden[ch] = 0;
 		fader_overrides[ch] = 0;
@@ -488,10 +452,7 @@ main(int argc, char **argv) {
 
 	read_config_file("config.dat");
 
-	mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
-	if(mk2c == NULL) {
-		abort(); // XXX
-	}
+	init_communications();
 	init_net();
 
 	pthread_create(&netthr, NULL, net_runner, NULL);
