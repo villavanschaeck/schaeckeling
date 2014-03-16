@@ -1,3 +1,5 @@
+#include <pthread.h>
+
 typedef int (midi_data_eater)(void *ctx, const unsigned char *buffer, int len);
 
 struct midi_context {
