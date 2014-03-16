@@ -123,6 +123,8 @@ init_nanokontrol2(char *path) {
 		return NULL;
 	}
 
+	nanokontrol2_switch_mode(ctx, NANOKONTROL2_MODE_NATIVE);
+
 	return ctx;
 }
 
