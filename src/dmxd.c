@@ -17,34 +17,30 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <signal.h>
+#include "schaeckeling.h"
 #include "dmxdriver.h"
 #include "net.h"
 #include "colors.h"
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_STATIC, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM };
+enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM };
 
 struct fader_handler {
 	enum handle_action action;
 	union {
 		struct {
-			int channel;
+			dmxchannel_t channel;
 		} single_channel;
 		struct {
-			int other_input;
-			int base_channel;
+			inputidx_t other_input;
+			dmxchannel_t base_channel;
 		} led_2ch;
-		struct {
-			int base_channel;
-			int num_channels;
-			int offset;
-		} led_static;
 	} data;
 };
 
 pthread_t netthr, progthr, watchdogthr;
-pthread_mutex_t dmx2_sendbuf_mtx, stepmtx;
+pthread_mutex_t dmxout_sendbuf_mtx, stepmtx;
 pthread_cond_t stepcond;
 
 int watchdog_dmx_pong = 0;
@@ -53,16 +49,13 @@ int watchdog_prog_pong = 0;
 
 extern int mk2c_lost; // FIXME define a cleaner way of reconnecting. dmxd.c shouldn't care *what* has been lost.
 
-unsigned char recvbuf[DMX_CHANNELS];
-unsigned char dmx2_sendbuf[DMX_CHANNELS];
+unsigned char inputbuf[INPUT_CHANNELS];
+struct fader_handler handlers[INPUT_CHANNELS];
 
-unsigned char old_recvbuf[DMX_CHANNELS];
-unsigned char dmx2_old_sendbuf[DMX_CHANNELS];
-
-volatile int dmx2_dirty = 0;
 extern int receiving_changes;
 
-struct fader_handler handlers[DMX_CHANNELS];
+unsigned char dmxout_sendbuf[DMX_CHANNELS];
+volatile int dmxout_dirty = 0;
 
 unsigned char fader_overrides[DMX_CHANNELS];
 unsigned char fader_overridden[DMX_CHANNELS];
@@ -100,6 +93,17 @@ decrement_timespec(struct timespec *ts, long sub) {
 	assert(ts->tv_nsec >= 0);
 }
 
+static int inline
+dmx_channel_to_dmxindex(dmxchannel_t channel) {
+	assert(channel > 0 && channel <= DMX_CHANNELS);
+	return channel-1;
+}
+
+static dmxchannel_t inline
+dmxindex_to_channel(int channel) {
+	assert(channel >= 0 && channel < DMX_CHANNELS);
+	return channel+1;
+}
 
 void
 error_step(void) {
@@ -111,16 +115,18 @@ error_step(void) {
 
 void
 update_websockets(int dmx1, int dmx2) {
+/*
 	if(dmx1) {
 		char *msg = malloc(1 + DMX_CHANNELS);
 		msg[0] = '1';
-		memcpy(msg+1, recvbuf, DMX_CHANNELS);
+		memcpy(msg+1, inputbuf, DMX_CHANNELS);
 		broadcast(msg, 1 + DMX_CHANNELS);
 	}
+*/
 	if(dmx2) {
 		char *msg = malloc(1 + DMX_CHANNELS);
 		msg[0] = '2';
-		memcpy(msg+1, dmx2_sendbuf, DMX_CHANNELS);
+		memcpy(msg+1, dmxout_sendbuf, DMX_CHANNELS);
 		broadcast(msg, 1 + DMX_CHANNELS);
 	}
 	if(dmx1 || dmx2) {
@@ -129,67 +135,57 @@ update_websockets(int dmx1, int dmx2) {
 }
 
 void
-flush_dmx2_sendbuf(void) {
-	pthread_mutex_lock(&dmx2_sendbuf_mtx);
-	if(dmx2_dirty) {
-		send_dmx(dmx2_sendbuf);
+flush_dmxout_sendbuf(void) {
+	pthread_mutex_lock(&dmxout_sendbuf_mtx);
+	if(dmxout_dirty) {
+		send_dmx(dmxout_sendbuf);
 		update_websockets(1, 0);
-		dmx2_dirty = 0;
+		dmxout_dirty = 0;
 	}
-	pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+	pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 }
 
 void
-update_channel(int channel, unsigned char new) {
-	int ch;
+update_input(int input, unsigned char new) {
 	unsigned char intensity, color;
+	dmxchannel_t dmxch;
+	int dmxidx;
 
-	recvbuf[channel] = new;
+	inputbuf[input] = new;
 
-	switch(handlers[channel].action) {
+	switch(handlers[input].action) {
 		case HANDLE_NONE:
 			break;
 		case HANDLE_SINGLE_CHANNEL:
-			pthread_mutex_lock(&dmx2_sendbuf_mtx);
-			dmx2_sendbuf[handlers[channel].data.single_channel.channel] = new;
-			fader_overridden[handlers[channel].data.single_channel.channel] = (new > 0);
-			fader_overrides[handlers[channel].data.single_channel.channel] = new;
-			dmx2_dirty = 1;
-			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
-			break;
-		case HANDLE_LED_STATIC:
-			pthread_mutex_lock(&dmx2_sendbuf_mtx);
-			for(ch = handlers[channel].data.led_static.base_channel; handlers[channel].data.led_static.base_channel + handlers[channel].data.led_static.num_channels > ch; ch++) {
-				dmx2_sendbuf[ch] = 0;
-				fader_overridden[ch] = (new > 0);
-				fader_overrides[ch] = 0;
-			}
-			ch = handlers[channel].data.led_static.base_channel + handlers[channel].data.led_static.offset;
-			dmx2_sendbuf[ch] = new;
-			fader_overrides[ch] = new;
-			dmx2_dirty = 1;
-			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+			pthread_mutex_lock(&dmxout_sendbuf_mtx);
+			dmxidx = dmx_channel_to_dmxindex(handlers[input].data.single_channel.channel);
+			dmxout_sendbuf[dmxidx] = new;
+			fader_overridden[dmxidx] = (new > 0);
+			fader_overrides[dmxidx] = new;
+			dmxout_dirty = 1;
+			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 			break;
 		case HANDLE_LED_2CH_INTENSITY:
 		case HANDLE_LED_2CH_COLOR:
-			if(handlers[channel].action == HANDLE_LED_2CH_INTENSITY) {
+			if(handlers[input].action == HANDLE_LED_2CH_INTENSITY) {
 				intensity = new;
-				color = recvbuf[handlers[channel].data.led_2ch.other_input];
+				color = inputbuf[handlers[input].data.led_2ch.other_input];
 			} else {
-				intensity = recvbuf[handlers[channel].data.led_2ch.other_input];
+				intensity = inputbuf[handlers[input].data.led_2ch.other_input];
 				color = new;
 			}
-			int ch = handlers[channel].data.led_2ch.base_channel;
-			pthread_mutex_lock(&dmx2_sendbuf_mtx);
+			dmxch = handlers[input].data.led_2ch.base_channel;
+			dmxidx = dmx_channel_to_dmxindex(dmxch);
+			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			if(color < 9) {
-				memset(fader_overridden + ch, 0, 3);
+				memset(fader_overridden + dmxidx, 0, 3);
 			} else {
-				convert_color_and_intensity(color, intensity, fader_overrides + ch);
-				memcpy(dmx2_sendbuf + ch, fader_overrides + ch, 3);
-				memset(fader_overridden + ch, 1, 3);
-				dmx2_dirty = 1;
+				convert_color_and_intensity(color, intensity, fader_overrides + dmxidx);
+				memcpy(dmxout_sendbuf + dmxidx, fader_overrides + dmxidx, 3);
+				memset(fader_overridden + dmxidx, 1, 3);
+				dmxout_dirty = 1;
 			}
-			pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 			break;
 		case HANDLE_MASTER:
 			pthread_mutex_lock(&stepmtx);
@@ -215,8 +211,6 @@ update_channel(int channel, unsigned char new) {
 }
 
 
-
-
 int
 handle_data(struct connection *c, char *buf_s, size_t len) {
 	unsigned char *buf = (unsigned char *)buf_s;
@@ -224,52 +218,48 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 #define REQUIRE_MIN_LENGTH(x) if(x > len) { return 0; } processed = x
 	assert(len > 0);
 
-	int ch;
+	inputidx_t iidx;
 
 	switch(buf[0]) {
-		case 'F':
+		case 'D':
+		case 'M':
 			REQUIRE_MIN_LENGTH(3);
-			ch = buf[1] - 1;
-			if(handlers[ch].action == HANDLE_LED_2CH_INTENSITY || handlers[ch].action == HANDLE_LED_2CH_COLOR) {
-				handlers[handlers[ch].data.led_2ch.other_input].action = HANDLE_NONE;
+			iidx = (buf[0] == 'D' ? dmx_to_input_index(buf[1]) : midi_to_input_index(buf[1]));
+			char *type = (buf[0] == 'D' ? "DMX" : "MIDI");
+			int input_number = buf[1];
+			if(handlers[iidx].action == HANDLE_LED_2CH_INTENSITY || handlers[iidx].action == HANDLE_LED_2CH_COLOR) {
+				handlers[handlers[iidx].data.led_2ch.other_input].action = HANDLE_NONE;
 			}
 			switch(buf[2]) {
 				case 'R':
-					printf("net: Set fader %d to default\n", ch+1);
-					handlers[ch].action = HANDLE_NONE;
-					update_channel(ch, recvbuf[ch]);
+					printf("net: Set %s channel %d to default\n", type, input_number);
+					handlers[iidx].action = HANDLE_NONE;
+					update_input(iidx, inputbuf[iidx]);
 					break;
 				case 'C':
 					REQUIRE_MIN_LENGTH(4);
-					printf("net: Set fader %d to single channel %d\n", ch+1, buf[3]);
-					handlers[ch].action = HANDLE_SINGLE_CHANNEL;
-					handlers[ch].data.single_channel.channel = buf[3]-1;
-					break;
-				case 'L':
-					REQUIRE_MIN_LENGTH(6);
-					printf("net: Set fader %d to led static [%d/%d-%d]\n", ch+1, buf[3] + buf[5], buf[3], buf[3] + buf[4]);
-					handlers[ch].action = HANDLE_LED_STATIC;
-					handlers[ch].data.led_static.base_channel = buf[3]-1;
-					handlers[ch].data.led_static.num_channels = buf[4];
-					handlers[ch].data.led_static.offset = buf[5];
+					printf("net: Set %s channel %d to single channel %d\n", type, input_number, buf[3]);
+					handlers[iidx].action = HANDLE_SINGLE_CHANNEL;
+					handlers[iidx].data.single_channel.channel = buf[3];
 					break;
 				case '2':
 					REQUIRE_MIN_LENGTH(5);
-					printf("net: Set fader %d and %d to led 2ch [%d-%d]\n", ch+1, buf[3]-1, buf[4]-1, buf[4]-1 + 2);
-					handlers[ch].action = HANDLE_LED_2CH_INTENSITY;
-					handlers[ch].data.led_2ch.other_input = buf[3]-1;
-					handlers[ch].data.led_2ch.base_channel = buf[4]-1;
-					handlers[buf[3]-1].action = HANDLE_LED_2CH_COLOR;
-					handlers[buf[3]-1].data.led_2ch.other_input = ch;
-					handlers[buf[3]-1].data.led_2ch.base_channel = buf[4]-1;
+					int other_iidx = (buf[0] == 'D' ? dmx_to_input_index(buf[3]) : midi_to_input_index(buf[3]));
+					printf("net: Set %s channel %d and %d to led 2ch [%d-%d]\n", type, input_number, buf[3], buf[4], buf[4] + 2);
+					handlers[iidx].action = HANDLE_LED_2CH_INTENSITY;
+					handlers[iidx].data.led_2ch.other_input = other_iidx;
+					handlers[iidx].data.led_2ch.base_channel = buf[4];
+					handlers[other_iidx].action = HANDLE_LED_2CH_COLOR;
+					handlers[other_iidx].data.led_2ch.other_input = iidx;
+					handlers[other_iidx].data.led_2ch.base_channel = buf[4];
 					break;
 				case 'B':
-					printf("net: Set fader %d to bpm\n", ch);
-					handlers[ch].action = HANDLE_BPM;
+					printf("net: Set %s channel %d to bpm\n", type, input_number);
+					handlers[iidx].action = HANDLE_BPM;
 					break;
 				case 'M':
-					printf("net: Set fader %d to master\n", ch);
-					handlers[ch].action = HANDLE_MASTER;
+					printf("net: Set %s channel %d to master\n", type, input_number);
+					handlers[iidx].action = HANDLE_MASTER;
 					break;
 				default:
 					return -1;
@@ -277,8 +267,8 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 			break;
 		case 'R':
 			REQUIRE_MIN_LENGTH(1);
-			for(ch = 0; DMX_CHANNELS > ch; ch++) {
-				handlers[ch].action = HANDLE_NONE;
+			for(iidx = 0; INPUT_CHANNELS > iidx; iidx++) {
+				handlers[iidx].action = HANDLE_NONE;
 			}
 			break;
 		case 'B':
@@ -295,27 +285,27 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 		case 'G':
 			REQUIRE_MIN_LENGTH(1);
 			printf("Sending settings to %p\n", c);
-			for(ch = 0; DMX_CHANNELS > ch; ch++) {
-				switch(handlers[ch].action) {
+			for(iidx = 0; INPUT_CHANNELS > iidx; iidx++) {
+				char chdesc[2];
+				chdesc[0] = input_index_is_dmx(iidx) ? 'D' : 'M';
+				chdesc[1] = input_index_is_dmx(iidx) ? input_index_to_dmx(iidx) : input_index_to_midi(iidx);
+				switch(handlers[iidx].action) {
 					case HANDLE_NONE:
 						break;
 					case HANDLE_SINGLE_CHANNEL:
-						client_printf(c, "F%cC%c", ch+1, handlers[ch].data.single_channel.channel+1);
-						break;
-					case HANDLE_LED_STATIC:
-						client_printf(c, "F%cL%c%c%c", ch+1, handlers[ch].data.led_static.base_channel+1, handlers[ch].data.led_static.num_channels, handlers[ch].data.led_static.offset);
+						client_printf(c, "%sC%c", chdesc, handlers[iidx].data.single_channel.channel+1);
 						break;
 					case HANDLE_LED_2CH_INTENSITY:
-						client_printf(c, "F%c2%c%c", ch+1, handlers[ch].data.led_2ch.other_input+1, handlers[ch].data.led_2ch.base_channel+1);
+						client_printf(c, "%s2%c%c", chdesc, handlers[iidx].data.led_2ch.other_input+1, handlers[iidx].data.led_2ch.base_channel+1);
 						break;
 					case HANDLE_LED_2CH_COLOR:
 						// wordt geconfigt via HANDLE_LED_2CH_INTENSITY
 						break;
 					case HANDLE_MASTER:
-						client_printf(c, "F%cM", ch+1);
+						client_printf(c, "%sM", chdesc);
 						break;
 					case HANDLE_BPM:
-						client_printf(c, "F%cB", ch+1);
+						client_printf(c, "%sB", chdesc);
 						break;
 				}
 			}
@@ -324,7 +314,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 			return -1;
 	}
 	if(!receiving_changes) {
-		flush_dmx2_sendbuf();
+		flush_dmxout_sendbuf();
 	}
 	return processed;
 }
@@ -337,22 +327,22 @@ prog_runner(void *dummy) {
 	while(1) {
 		int step = 0;
 		while(programma_steps > step) {
-			int ch;
-			pthread_mutex_lock(&dmx2_sendbuf_mtx);
+			int dmxidx;
+			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			printf("program_step: ");
-			for(ch = 0; programma_channels > ch; ch++) {
-				dmx2_sendbuf[ch] = master_divider ? (fader_overridden[ch] ? fader_overrides[ch] : programma[step][ch]) / master_divider : 0;
-				printf("%d: %03d; ", ch, dmx2_sendbuf[ch]);
+			for(dmxidx = 0; programma_channels > dmxidx; dmxidx++) {
+				dmxout_sendbuf[dmxidx] = master_divider ? (fader_overridden[dmxidx] ? fader_overrides[dmxidx] : programma[step][dmxidx]) / master_divider : 0;
+				printf("%d: %03d; ", dmxindex_to_channel(dmxidx), dmxout_sendbuf[dmxidx]);
 			}
 			printf("\n");
 			if(mk2c_lost) {
-				dmx2_dirty = 1;
-				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+				dmxout_dirty = 1;
+				pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 				reconnect_if_needed();
 			} else {
-				send_dmx(dmx2_sendbuf);
+				send_dmx(dmxout_sendbuf);
 				update_websockets(1, 0);
-				pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+				pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 			}
 
 			printf("[prog] pthread_cond_timedwait(&stepcond, &stepmtx, { %d, %ld });\n", (int)nextstep.tv_sec, nextstep.tv_nsec);
@@ -404,19 +394,19 @@ watchdog_runner(void *dummy) {
 
 void
 reset_vars() {
-	int ch;
-	pthread_mutex_lock(&dmx2_sendbuf_mtx);
-	for(ch = 0; DMX_CHANNELS > ch; ch++) {
-		handlers[ch].action = HANDLE_NONE;
-		recvbuf[ch] = 0;
-		dmx2_sendbuf[ch] = 0;
-		old_recvbuf[ch] = 0;
-		dmx2_old_sendbuf[ch] = 0;
-		fader_overridden[ch] = 0;
-		fader_overrides[ch] = 0;
+	int iidx, dmxidx;
+	pthread_mutex_lock(&dmxout_sendbuf_mtx);
+	for(iidx = 0; INPUT_CHANNELS > iidx; iidx++) {
+		handlers[iidx].action = HANDLE_NONE;
+		inputbuf[iidx] = 0;
 	}
-	dmx2_dirty = 1;
-	pthread_mutex_unlock(&dmx2_sendbuf_mtx);
+	for(dmxidx = 0; DMX_CHANNELS > dmxidx; dmxidx++) {
+		dmxout_sendbuf[dmxidx] = 0;
+		fader_overridden[dmxidx] = 0;
+		fader_overrides[dmxidx] = 0;
+	}
+	dmxout_dirty = 1;
+	pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 }
 
 int
@@ -455,7 +445,7 @@ read_config_file(char *filename) {
 
 int
 main(int argc, char **argv) {
-	pthread_mutex_init(&dmx2_sendbuf_mtx, NULL);
+	pthread_mutex_init(&dmxout_sendbuf_mtx, NULL);
 	pthread_mutex_init(&stepmtx, NULL);
 	pthread_cond_init(&stepcond, NULL);
 	reset_vars();
@@ -468,7 +458,7 @@ main(int argc, char **argv) {
 	pthread_create(&netthr, NULL, net_runner, NULL);
 	pthread_create(&progthr, NULL, prog_runner, NULL);
 
-	send_dmx(dmx2_sendbuf);
+	send_dmx(dmxout_sendbuf);
 
 	watchdog_runner(NULL);
 

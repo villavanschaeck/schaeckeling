@@ -97,12 +97,14 @@ send_msg(struct ftdi_context *ftdic, int label, unsigned char *prepared_buffer, 
 	prepared_buffer[3] = length >> BYTE_LENGTH;
 
 	// Add end code
-	prepared_buffer[MSG_HEADER_LENGTH + length] = MSG_END_CODE;
+	length += MSG_HEADER_LENGTH;
+	prepared_buffer[length] = MSG_END_CODE;
 
 	// Write The Data
-	ret = write_data(ftdic, prepared_buffer, MSG_HEADER_LENGTH + length + MSG_END_CODE_LENGTH);
+	length += MSG_END_CODE_LENGTH;
+	ret = write_data(ftdic, prepared_buffer, length);
 	if (ret != length) {
-		fprintf(stderr, "send_msg: Unexpected number of bytes written: %d\n", ret);
+		fprintf(stderr, "send_msg: Unexpected number of bytes written: %d, should be %d\n", ret, length);
 		return -1;
 	}
 
@@ -346,16 +348,24 @@ connect_dmx_usb_mk2_pro(struct ftdi_context *ftdic) {
 
 static int
 enable_second_universe(struct ftdi_context *ftdic) {
-	unsigned char port_set[] = { 1, 1};
 	int ret = 0;
+	unsigned char *port_set_buf = prepare_msg_buffer(2);
+	unsigned char *api_key_buf = prepare_msg_buffer(4);
+	if (port_set_buf == NULL || api_key_buf == NULL) {
+		fprintf(stderr, "enable_second_universe: Failed to allocate space for message buffer.\n");
+		return -1;
+	}
 
-	ret = send_msg(ftdic, SET_API_KEY, APIKey, 4);
+	memcpy(api_key_buf, APIKey, 4);
+	ret = send_msg(ftdic, SET_API_KEY, api_key_buf, 4);
 	if (ret != 0) {
 		fprintf(stderr, "enable_second_universe: Setting API key failed.\n");
 		return ret;
 	}
 
-	ret = send_msg(ftdic, SET_PORT_ASSIGNMENT, port_set, 2);
+	port_set_buf[0] = 1;
+	port_set_buf[1] = 1;
+	ret = send_msg(ftdic, SET_PORT_ASSIGNMENT, port_set_buf, 2);
 	if (ret != 0) {
 		fprintf(stderr, "enable_second_universe: Setting port assignment failed.\n");
 		return ret;
@@ -372,7 +382,15 @@ static int
 set_dmx_recv_mode(struct ftdi_context *ftdic, unsigned char on_change) {
 	int ret;
 
-	ret = send_msg(ftdic, RECEIVE_DMX_ON_CHANGE_1, &on_change, 1);
+	unsigned char *on_change_buf = prepare_msg_buffer(1);
+
+	if (on_change_buf == NULL) {
+		fprintf(stderr, "set_dmx_recv_mode: Failed to allocate space for message buffer.\n");
+		return -1;
+	}
+
+	on_change_buf[0] = on_change;
+	ret = send_msg(ftdic, RECEIVE_DMX_ON_CHANGE_1, on_change_buf, 1);
 	if (ret != 0) {
 		fprintf(stderr, "set_dmx_recv_mode: Setting receive mode failed.\n");
 	}
