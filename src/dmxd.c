@@ -291,7 +291,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					printf("net: Set %s channel %d to chase (program intensity)\n", type, input_number);
 					handlers[iidx].action = HANDLE_CHASE;
 					break;
-				case 'R':
+				case 'S':
 					printf("net: Set %s channel %d to program play/pause\n", type, input_number);
 					handlers[iidx].action = HANDLE_RUN;
 					break;
@@ -345,7 +345,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 						client_printf(c, "%sB", chdesc);
 						break;
 					case HANDLE_RUN:
-						client_printf(c, "%sR", chdesc);
+						client_printf(c, "%sS", chdesc);
 						break;
 				}
 			}
