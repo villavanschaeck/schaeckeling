@@ -7,49 +7,26 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-
-/*
-struct mk2_pro_context * init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_t commit_callback, dmx_error_callback_t error_callback);
-void teardown_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c);
-int send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes);
-*/
+#include "mididriver.h"
 
 #define NANOKONTROL2_MODE_NORMAL	0
 #define NANOKONTROL2_MODE_NATIVE	1
 
 struct nanokontrol2_context {
-	int fd;
-	pthread_t thr;
-	int running;
+	struct midi_context midictx;
 	int active_mode;
 	int requested_mode;
 };
 
-static void
-print_midi(const char *prefix, const unsigned char *buf, int len) {
-	int i;
-	printf("%s", prefix);
-	for(i = 0; len > i; i++) {
-		printf("%02x%c", buf[i], i == len-1 ? '\n' : ' ');
-	}
-}
-
-static void
-nanokontrol2_send_midi(struct nanokontrol2_context *ctx, const unsigned char *buf, const int len) {
-	int ret;
-	print_midi("> ", buf, len);
-	ret = write(ctx->fd, buf, len);
-	assert(ret == len);
-}
-
 void
 nanokontrol2_set_led(struct nanokontrol2_context *ctx, int which, int value) {
 	unsigned char msg[] = { 0xbf, which, value == 0 ? 0x00 : 0x7f };
-	nanokontrol2_send_midi(ctx, msg, 3);
+	midi_send_buf(&ctx->midictx, msg, 3);
 }
 
 static int
-nanokontrol2_read_data(struct nanokontrol2_context *ctx, const unsigned char *buffer, int len) {
+nanokontrol2_read_data(void *_ctx, const unsigned char *buffer, int len) {
+	struct nanokontrol2_context *ctx = _ctx;
 	if(len < 1) {
 		return 0;
 	}
@@ -83,14 +60,14 @@ nanokontrol2_read_data(struct nanokontrol2_context *ctx, const unsigned char *bu
 			break;
 		default:
 			printf("Wat de fuck is %02x?\n", buffer[0]);
-			print_midi("buffer: ", buffer, len);
+			midi_print_buf("buffer: ", buffer, len);
 			abort();
 	}
 	if(cmdlen > len) {
 		printf("Not enough data for %02x: %d of %d\n", buffer[0], len, cmdlen);
 		return 0;
 	}
-	print_midi("< ", buffer, cmdlen);
+	midi_print_buf("< ", buffer, cmdlen);
 	switch(buffer[0]) {
 		case 0xb0:
 		case 0xbf:
@@ -128,7 +105,7 @@ nanokontrol2_read_data(struct nanokontrol2_context *ctx, const unsigned char *bu
 				case 0x7f: // Data dump
 					switch(buffer[dumpoffset]) {
 						case 0x40: // Current Scene Data Dump
-							print_midi("group 1: ", buffer + dumpoffset + 1 + 3, 30);
+							midi_print_buf("group 1: ", buffer + dumpoffset + 1 + 3, 30);
 							break;
 					}
 					break;
@@ -138,40 +115,6 @@ nanokontrol2_read_data(struct nanokontrol2_context *ctx, const unsigned char *bu
 	return cmdlen;
 }
 
-static void
-nanokontrol2_reader(struct nanokontrol2_context *ctx) {
-	unsigned char buffer[512];
-	int bufpos = 0;
-
-	ctx->running = 1;
-
-	while(ctx->running) {
-		int ret = read(ctx->fd, buffer+bufpos, sizeof(buffer) - bufpos);
-		if(ret == -1 && !ctx->running) {
-			break;
-		}
-		assert(ret != -1);
-		bufpos += ret;
-
-		int eat;
-		do {
-			eat = nanokontrol2_read_data(ctx, buffer, bufpos);
-			assert(eat >= 0 && eat <= bufpos);
-			if(eat == 0) {
-				break;
-			}
-			bufpos -= eat;
-			memmove(buffer, buffer + eat, bufpos);
-		} while(eat > 0);
-	}
-}
-
-static void *
-read_thread(void *ctx) {
-	nanokontrol2_reader(ctx);
-	return NULL;
-}
-
 struct nanokontrol2_context *
 init_nanokontrol2(char *path) {
 	struct nanokontrol2_context *ctx;
@@ -179,33 +122,31 @@ init_nanokontrol2(char *path) {
 	ctx = malloc(sizeof(struct nanokontrol2_context));
 	assert(ctx != NULL);
 
-	ctx->fd = open(path, O_RDWR);
-	assert(ctx->fd != -1);
-
-	pthread_create(&ctx->thr, NULL, read_thread, ctx);
+	if(init_midi(&ctx->midictx, path, nanokontrol2_read_data) == NULL) {
+		free(ctx);
+		return NULL;
+	}
 
 	return ctx;
 }
 
 void
 teardown_nanokontrol2(struct nanokontrol2_context *ctx) {
-	ctx->running = 0;
-	close(ctx->fd);
-	pthread_join(ctx->thr, NULL);
+	teardown_midi(&ctx->midictx);
 	free(ctx);
 }
 
 static void
 nanokontrol2_switch_mode(struct nanokontrol2_context *ctx, int mode) {
 	unsigned char buf[] = { 0xf0, 0x42, 0x40, 0x00, 0x01, 0x13, 0x00, 0x00, 0x00, mode, 0xf7 };
-	nanokontrol2_send_midi(ctx, buf, 11);
+	midi_send_buf(&ctx->midictx, buf, 11);
 	ctx->requested_mode = mode;
 }
 
 void
 nanokontrol2_ask_status(struct nanokontrol2_context *ctx) {
 	unsigned char buf[] = { 0xf0, 0x42, 0x40, 0x00, 0x01, 0x13, 0x00, 0x1f, 0x10, 0x00, 0xf7 };
-	nanokontrol2_send_midi(ctx, buf, 11);
+	midi_send_buf(&ctx->midictx, buf, 11);
 }
 
 int
@@ -221,7 +162,7 @@ main(int argc, char **argv) {
 /*
 	sleep(3);
 	unsigned char rstbuf[] = { 0xf0, 0x42, 0x40, 0x00, 0x01, 0x13, 0x00, 0xff, 0x00, 0x00, 0xf7 };
-	nanokontrol2_send_midi(ctx, rstbuf, 11);
+	midi_send_buf(&ctx->midictx, rstbuf, 11);
 */
 
 	//pthread_join(ctx->thr, NULL);
