@@ -12,11 +12,11 @@ volatile int receiving_changes = 0;
 
 
 void
-midi_changed(int channel, unsigned char old, unsigned char new) {
+midi_changed(int channel, unsigned char value) {
 	assert(channel >= 0 && channel < MIDI_CHANNELS);
-	fprintf(stdout, "midi_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
+	fprintf(stdout, "midi_changed(%d, %d)\n", channel, (int)value);
 	receiving_changes = 1;
-	update_channel(channel + DMX_CHANNELS, new);
+	update_channel(channel + DMX_CHANNELS, value);
 }
 
 
