@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include "schaeckeling.h"
 #include "dmxdriver.h"
 #include "dmxd.h"
 #include "nanokontroldriver.h"
@@ -14,37 +15,37 @@ volatile int receiving_changes = 0;
 
 
 void
-midi_changed(int channel, unsigned char value) {
+midi_changed(midichannel_t channel, unsigned char value) {
 	assert(channel >= 0 && channel < MIDI_CHANNELS);
 	assert(value <= 127);
 	value *= 2;
 	fprintf(stdout, "midi_changed(%d, %d)\n", channel, (int)value);
 	receiving_changes = 1;
-	update_channel(channel, value);
+	update_input(midi_to_input_index(channel), value);
 }
 
 
 void
 midi_input_completed(void) {
 	receiving_changes = 0;
-	flush_dmx2_sendbuf();
+	flush_dmxout_sendbuf();
 //	update_websockets(0, 1);
 }
 
 
 void
-dmx_changed(int channel, unsigned char old, unsigned char new) {
-	assert(channel >= 0 && channel < DMX_CHANNELS);
+dmx_changed(dmxchannel_t channel, unsigned char old, unsigned char new) {
+	assert(channel > 0 && channel <= DMX_CHANNELS);
 	fprintf(stdout, "dmx_changed(%d, %d, %d)\n", channel, (int)old, (int)new);
 	receiving_changes = 1;
-	update_channel(channel + MIDI_CHANNELS, new);
+	update_input(dmx_to_input_index(channel), new);
 }
 
 
 void
 dmx_input_completed(void) {
 	receiving_changes = 0;
-	flush_dmx2_sendbuf();
+	flush_dmxout_sendbuf();
 	update_websockets(0, 1);
 }
 
@@ -82,7 +83,7 @@ reconnect_if_needed(void) {
 		mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
 		if (mk2c != NULL) {
 			mk2c_lost = 0;
-			flush_dmx2_sendbuf();
+			flush_dmxout_sendbuf();
 		}
 	}
 	if (midi_lost) {
