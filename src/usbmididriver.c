@@ -53,7 +53,7 @@ usbmidi_read_data(void *_ctx, const unsigned char *buffer, int len) {
 }
 
 struct usbmidi_context *
-init_nanokontrol2(char *path) {
+init_usbmidi(char *path) {
 	struct usbmidi_context *ctx;
 
 	ctx = malloc(sizeof(struct usbmidi_context));
