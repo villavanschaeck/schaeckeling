@@ -95,13 +95,13 @@ decrement_timespec(struct timespec *ts, long sub) {
 
 static int inline
 dmx_channel_to_dmxindex(dmxchannel_t channel) {
-	assert(channel >= 0 && channel < DMX_CHANNELS);
+	assert(channel > 0 && channel <= DMX_CHANNELS);
 	return channel-1;
 }
 
 static dmxchannel_t inline
 dmxindex_to_channel(int channel) {
-	assert(channel > 0 && channel <= DMX_CHANNELS);
+	assert(channel >= 0 && channel < DMX_CHANNELS);
 	return channel+1;
 }
 
