@@ -227,6 +227,7 @@ update_input(inputidx_t input, unsigned char new) {
 			}
 			pthread_mutex_lock(&stepmtx);
 			program_running = !program_running;
+			set_feedback_running(program_running);
 			if(program_running) {
 				clock_gettime(CLOCK_REALTIME, &nextstep);
 			}
@@ -496,6 +497,8 @@ main(int argc, char **argv) {
 
 	init_communications();
 	init_net();
+
+	set_feedback_running(program_running);
 
 	pthread_create(&netthr, NULL, net_runner, NULL);
 	pthread_create(&progthr, NULL, prog_runner, NULL);
