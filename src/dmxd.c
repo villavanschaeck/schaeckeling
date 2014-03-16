@@ -244,7 +244,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					break;
 				case '2':
 					REQUIRE_MIN_LENGTH(5);
-					int other_iidx = (buf[0] == 'D' ? dmx_to_input_index(buf[1]) : midi_to_input_index(buf[1]));
+					int other_iidx = (buf[0] == 'D' ? dmx_to_input_index(buf[3]) : midi_to_input_index(buf[3]));
 					printf("net: Set %s channel %d and %d to led 2ch [%d-%d]\n", type, input_number, buf[3], buf[4], buf[4] + 2);
 					handlers[iidx].action = HANDLE_LED_2CH_INTENSITY;
 					handlers[iidx].data.led_2ch.other_input = other_iidx;
