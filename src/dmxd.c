@@ -24,7 +24,7 @@
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE };
+enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN};
 
 struct fader_handler {
 	enum handle_action action;
@@ -62,6 +62,7 @@ unsigned char fader_overridden[DMX_CHANNELS];
 
 int master_intensity = 255;
 int program_intensity = 255;
+int program_running = 1;
 long programma_wait = 1000000;
 struct timespec nextstep;
 
@@ -220,6 +221,18 @@ update_input(inputidx_t input, unsigned char new) {
 			printf("[dmx] pthread_mutex_unlock(&stepmtx);\n");
 			pthread_mutex_unlock(&stepmtx);
 			return;
+		case HANDLE_RUN:
+			if(new < 64) {
+				break;
+			}
+			pthread_mutex_lock(&stepmtx);
+			program_running = !program_running;
+			if(program_running) {
+				clock_gettime(CLOCK_REALTIME, &nextstep);
+			}
+			pthread_cond_signal(&stepcond);
+			pthread_mutex_unlock(&stepmtx);
+			return;
 	}
 }
 
@@ -278,6 +291,10 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					printf("net: Set %s channel %d to chase (program intensity)\n", type, input_number);
 					handlers[iidx].action = HANDLE_CHASE;
 					break;
+				case 'R':
+					printf("net: Set %s channel %d to program play/pause\n", type, input_number);
+					handlers[iidx].action = HANDLE_RUN;
+					break;
 				default:
 					return -1;
 			}
@@ -327,6 +344,9 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					case HANDLE_BPM:
 						client_printf(c, "%sB", chdesc);
 						break;
+					case HANDLE_RUN:
+						client_printf(c, "%sR", chdesc);
+						break;
 				}
 			}
 			break;
@@ -369,7 +389,9 @@ prog_runner(void *dummy) {
 			int res = pthread_cond_timedwait(&stepcond, &stepmtx, &nextstep);
 			if(res == ETIMEDOUT) {
 				increment_timespec(&nextstep, programma_wait);
-				step++;
+				if(program_running) {
+					step++;
+				}
 			}
 			watchdog_prog_pong = 1;
 		}
