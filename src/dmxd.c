@@ -24,7 +24,7 @@
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN};
+enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT };
 
 struct fader_handler {
 	enum handle_action action;
@@ -60,6 +60,7 @@ volatile int dmxout_dirty = 0;
 unsigned char fader_overrides[DMX_CHANNELS];
 unsigned char fader_overridden[DMX_CHANNELS];
 
+int master_blackout = -1;
 int master_intensity = 255;
 int program_intensity = 255;
 int program_running = 1;
@@ -197,7 +198,25 @@ update_input(inputidx_t input, unsigned char new) {
 			break;
 		case HANDLE_MASTER:
 			pthread_mutex_lock(&stepmtx);
-			master_intensity = new;
+			if(master_blackout == -1) {
+				master_intensity = new;
+				pthread_cond_signal(&stepcond);
+			} else {
+				master_blackout = new;
+			}
+			pthread_mutex_unlock(&stepmtx);
+			return;
+		case HANDLE_BLACKOUT:
+			pthread_mutex_lock(&stepmtx);
+			if(master_blackout == -1) {
+				master_blackout = master_intensity;
+				master_intensity = 0;
+				set_feedback_blackout(1);
+			} else {
+				master_intensity = master_blackout;
+				master_blackout = -1;
+				set_feedback_blackout(0);
+			}
 			pthread_cond_signal(&stepcond);
 			pthread_mutex_unlock(&stepmtx);
 			return;
@@ -296,6 +315,10 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					printf("net: Set %s channel %d to program play/pause\n", type, input_number);
 					handlers[iidx].action = HANDLE_RUN;
 					break;
+				case 'D':
+					printf("net: Set %s channel %d to blackout\n", type, input_number);
+					handlers[iidx].action = HANDLE_BLACKOUT;
+					break;
 				default:
 					return -1;
 			}
@@ -347,6 +370,9 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 						break;
 					case HANDLE_RUN:
 						client_printf(c, "%sS", chdesc);
+						break;
+					case HANDLE_BLACKOUT:
+						client_printf(c, "%sD", chdesc);
 						break;
 				}
 			}

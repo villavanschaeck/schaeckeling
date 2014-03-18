@@ -140,6 +140,13 @@ set_feedback_running(int running) {
 }
 
 void
+set_feedback_blackout(int blackout) {
+	if(nanokontrol2 != NULL) {
+		nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_RECORD, blackout * 127);
+	}
+}
+
+void
 set_feedback_step() {
 	if(nanokontrol2 != NULL) {
 		static int prev = 0;
