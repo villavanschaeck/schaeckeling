@@ -207,6 +207,9 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_mutex_unlock(&stepmtx);
 			return;
 		case HANDLE_BLACKOUT:
+			if(new < 64) {
+				break;
+			}
 			pthread_mutex_lock(&stepmtx);
 			if(master_blackout == -1) {
 				master_blackout = master_intensity;
