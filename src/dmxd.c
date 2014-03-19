@@ -529,6 +529,7 @@ main(int argc, char **argv) {
 	init_net();
 
 	set_feedback_running(program_running);
+	set_feedback_blackout(master_blackout != -1);
 
 	pthread_create(&netthr, NULL, net_runner, NULL);
 	pthread_create(&progthr, NULL, prog_runner, NULL);
