@@ -169,8 +169,8 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			dmxidx = dmx_channel_to_dmxindex(handlers[input].data.single_channel.channel);
 			fader_overridden[dmxidx] = (new > 0);
-			fader_overrides[dmxidx] = apply_intensity(new, master_intensity);
-			dmxout_sendbuf[dmxidx] = fader_overridden[dmxidx];
+			fader_overrides[dmxidx] = new;
+			dmxout_sendbuf[dmxidx] = apply_intensity(new, master_intensity);
 			dmxout_dirty = 1;
 			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 			break;
