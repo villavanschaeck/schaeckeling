@@ -133,7 +133,7 @@ mk2_send_dmx(struct mk2_pro_context *mk2c, unsigned char *dmxbytes) {
 	memcpy(messagebuffer + 1, dmxbytes, DMX_PACKET_SIZE);
 
 	// send the array here
-	ret = send_msg(mk2c->ftdic, SEND_DMX_2, messagebuffer, 1 + DMX_PACKET_SIZE);
+	ret = send_msg(mk2c->ftdic, mk2c->device_type == ENTTEC_DMX_USB_PRO_MK2 ? SEND_DMX_2 : SEND_DMX_1, messagebuffer, 1 + DMX_PACKET_SIZE);
 	if (ret < 0)
 	{
 		fprintf(stderr, "send_dmx: Failed to send DMX\n");
@@ -307,12 +307,21 @@ read_dmx_usb_mk2_pro_runner(void *mk2c) {
 
 
 static int
-connect_dmx_usb_mk2_pro(struct ftdi_context *ftdic) {
+connect_dmx_usb_mk2_pro(struct mk2_pro_context *mk2c) {
 	int ret;
 
 	/* Search for the FTDI device powering the Enttec DMX USB Mk2 Pro: vendor 0x0403, product 0x6001,
 	   description DMX USB PRO Mk2, serial ENVWI3AT (but unnecessary so NULL). */
-	ret = ftdi_usb_open_desc(ftdic, 0x0403, 0x6001, "DMX USB PRO Mk2", NULL);
+	mk2c->device_type = ENTTEC_DMX_USB_PRO_MK2;
+	ret = ftdi_usb_open_desc(mk2c->ftdic, 0x0403, 0x6001, "DMX USB PRO Mk2", NULL);
+	if(ret == -3) {
+		mk2c->device_type = ENTTEC_DMX_USB_PRO;
+		ret = ftdi_usb_open_desc(mk2c->ftdic, 0x0403, 0x6001, "DMX USB PRO", NULL);
+		if(ret == -3) {
+			mk2c->device_type = 0;
+			ret = ftdi_usb_open_desc(mk2c->ftdic, 0x0403, 0x6001, NULL, NULL);
+		}
+	}
 	switch (ret) {
 		case -3:
 			fprintf(stderr, "connect_dmx_usb_mk2_pro: USB device not found\n");
@@ -419,7 +428,7 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 		return NULL;
 	}
 
-	ret = connect_dmx_usb_mk2_pro(mk2c->ftdic);
+	ret = connect_dmx_usb_mk2_pro(mk2c);
 	if (ret != 0) {
 		fprintf(stderr, "init_dmx_usb_mk2_pro: Failed to connect\n");
 		goto error;
@@ -431,15 +440,17 @@ init_dmx_usb_mk2_pro(dmx_update_callback_t update_callback, dmx_commit_callback_
 		goto error;
 	}
 
-	ret = enable_second_universe(mk2c->ftdic);
-	if(ret != 0) {
-		fprintf(stderr, "init_dmx_usb_mk2_pro: Failed to enable second universe\n");
-		goto error;
-	}
-	ret = set_dmx_recv_mode(mk2c->ftdic, 0);
-	if(ret != 0) {
-		fprintf(stderr, "init_dmx_usb_mk2_pro: Failed to set dmx receive mode\n");
-		goto error;
+	if(mk2c->device_type == 2) {
+		ret = enable_second_universe(mk2c->ftdic);
+		if(ret != 0) {
+			fprintf(stderr, "init_dmx_usb_mk2_pro: Failed to enable second universe\n");
+			goto error;
+		}
+		ret = set_dmx_recv_mode(mk2c->ftdic, 0);
+		if(ret != 0) {
+			fprintf(stderr, "init_dmx_usb_mk2_pro: Failed to set dmx receive mode\n");
+			goto error;
+		}
 	}
 
 	mk2c->update_callback = update_callback;

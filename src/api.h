@@ -1,3 +1,6 @@
+#define ENTTEC_DMX_USB_PRO              1
+#define ENTTEC_DMX_USB_PRO_MK2          2
+
 /**************************************************
  Common API definitions.
 **************************************************/
@@ -81,6 +84,7 @@ struct mk2_pro_context {
 	dmx_error_callback_t error_callback;
 	pthread_t readid;
 	unsigned char running;
+	char device_type;
 };
 
 
