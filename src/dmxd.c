@@ -401,7 +401,7 @@ prog_runner(void *dummy) {
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			printf("program_step: ");
 			for(dmxidx = 0; programma_channels > dmxidx; dmxidx++) {
-				dmxout_sendbuf[dmxidx] = apply_intensity(fader_overridden[dmxidx] ? fader_overrides[dmxidx] : programma[step][dmxidx], apply_intensity(program_intensity, master_intensity));
+				dmxout_sendbuf[dmxidx] = apply_intensity(fader_overridden[dmxidx] ? fader_overrides[dmxidx] : apply_intensity(programma[step][dmxidx], program_intensity), master_intensity);
 				printf("%d: %03d; ", dmxindex_to_channel(dmxidx), dmxout_sendbuf[dmxidx]);
 			}
 			printf("\n");
