@@ -1,0 +1,10 @@
+# Comments;;;;;;;;;;;;;;;;;;;
+!spb;1;# Aantal stappen per beat;;;;;;;;;;;;;;;;;
+!author;Jille Timmermans;;;;;;;;;;;;;;;;;;
+!empty;off;# off om een lege cel de lamp uit te laten zetten, previous om een lege cel de lamp niet te veranderen;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;
+Kleur 1;Intensiteit 1;Kleur 2;Intensiteit 2;Kleur 3;Intensiteit 3;Kleur 4;Intensiteit 4;Kleur 5;Intensiteit 5;Kleur 6;Intensiteit 6;Kleur 7;Intensiteit 7;Kleur 8;Intensiteit 8;Kleur 9;Intensiteit 9;Kleur 10;Intensiteit 10
+red;255;;;;;;;;;;;;;;;;;;
+;;red;255;;;;;;;;;;;;;;;;
+;;;;red;255;;;;;;;;;;;;;;
+;;;;;;red;255;;;;;;;;;;;;
