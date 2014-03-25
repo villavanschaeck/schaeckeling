@@ -20,6 +20,7 @@ extern char *optarg;
 extern int optind, opterr, optopt;
 
 volatile int got_sigwinch = 0;
+pid_t pid = 0;
 
 void
 handle_sigwinch(int sig) {
@@ -27,9 +28,20 @@ handle_sigwinch(int sig) {
 	got_sigwinch = 1;
 }
 
+void
+handle_sigterm(int sig) {
+	assert(sig == SIGTERM);
+	if(pid > 0) {
+		kill(pid, sig);
+		sleep(3);
+		kill(pid, SIGKILL);
+	}
+	exit(0);
+}
+
 int
 main(int argc, char **argv) {
-	pid_t pid = 0, wpid;
+	pid_t wpid;
 	int opt, status;
 	int failures = 0;
 	time_t last_fail = 0;
@@ -37,6 +49,7 @@ main(int argc, char **argv) {
 	int daemonize = 0;
 
 	signal(SIGWINCH, handle_sigwinch);
+	signal(SIGTERM, handle_sigterm);
 
 	while((opt = getopt(argc, argv, "Dc:")) != -1) {
 		switch(opt) {
@@ -103,9 +116,9 @@ main(int argc, char **argv) {
 		sleep(30);
 
 		if(!got_sigwinch) {
-			kill(pid, 15);
+			kill(pid, SIGTERM);
 			sleep(3);
-			kill(pid, 9);
+			kill(pid, SIGKILL);
 		}
 	}
 }
