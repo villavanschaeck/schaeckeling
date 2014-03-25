@@ -24,14 +24,14 @@
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_SINGLE_CHANNEL, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT };
+enum handle_action { HANDLE_NONE, HANDLE_RAW_VALUE, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT };
 
 struct fader_handler {
 	enum handle_action action;
 	union {
 		struct {
 			dmxchannel_t channel;
-		} single_channel;
+		} raw_value;
 		struct {
 			inputidx_t other_input;
 			dmxchannel_t base_channel;
@@ -57,8 +57,9 @@ extern int receiving_changes;
 unsigned char dmxout_sendbuf[DMX_CHANNELS];
 volatile int dmxout_dirty = 0;
 
-unsigned char fader_overrides[DMX_CHANNELS];
-unsigned char fader_overridden[DMX_CHANNELS];
+unsigned char channel_flags[DMX_CHANNELS];
+unsigned char channel_overrides[DMX_CHANNELS];
+unsigned char channel_intensity[DMX_CHANNELS];
 
 int master_blackout = -1;
 int master_intensity = 255;
@@ -68,6 +69,20 @@ long programma_wait = 1000000;
 struct timespec nextstep;
 
 #include "programma.c"
+
+#define CHFLAG_IGNORE_MASTER 1
+#define CHFLAG_OVERRIDE_PROGRAMMA 2
+
+#define CHFLAG_GET_FLAG(ch, flag) (channel_flags[ch] & flag)
+#define CHFLAG_SET_FLAG(ch, flag) channel_flags[ch] |= flag
+#define CHFLAG_CLR_FLAG(ch, flag) channel_flags[ch] &= ~flag
+
+#define CHFLAG_GET_IGNORE_MASTER(ch) CHFLAG_GET_FLAG(ch, CHFLAG_IGNORE_MASTER)
+#define CHFLAG_GET_OVERRIDE_PROGRAMMA(ch) CHFLAG_GET_FLAG(ch, CHFLAG_OVERRIDE_PROGRAMMA)
+#define CHFLAG_SET_IGNORE_MASTER(ch) CHFLAG_SET_FLAG(ch, CHFLAG_IGNORE_MASTER)
+#define CHFLAG_SET_OVERRIDE_PROGRAMMA(ch) CHFLAG_SET_FLAG(ch, CHFLAG_OVERRIDE_PROGRAMMA)
+#define CHFLAG_CLR_IGNORE_MASTER(ch) CHFLAG_CLR_FLAG(ch, CHFLAG_IGNORE_MASTER)
+#define CHFLAG_CLR_OVERRIDE_PROGRAMMA(ch) CHFLAG_CLR_FLAG(ch, CHFLAG_OVERRIDE_PROGRAMMA)
 
 static void inline
 increment_timespec(struct timespec *ts, long add) {
@@ -165,12 +180,13 @@ update_input(inputidx_t input, unsigned char new) {
 	switch(handlers[input].action) {
 		case HANDLE_NONE:
 			break;
-		case HANDLE_SINGLE_CHANNEL:
+		case HANDLE_RAW_VALUE:
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
-			dmxidx = dmx_channel_to_dmxindex(handlers[input].data.single_channel.channel);
-			fader_overridden[dmxidx] = (new > 0);
-			fader_overrides[dmxidx] = new;
-			dmxout_sendbuf[dmxidx] = apply_intensity(new, master_intensity);
+			dmxidx = dmx_channel_to_dmxindex(handlers[input].data.raw_value.channel);
+			CHFLAG_SET_IGNORE_MASTER(dmxidx);
+			CHFLAG_SET_OVERRIDE_PROGRAMMA(dmxidx);
+			channel_overrides[dmxidx] = new;
+			dmxout_sendbuf[dmxidx] = new;
 			dmxout_dirty = 1;
 			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
 			break;
@@ -185,16 +201,20 @@ update_input(inputidx_t input, unsigned char new) {
 			}
 			dmxch = handlers[input].data.led_2ch.base_channel;
 			dmxidx = dmx_channel_to_dmxindex(dmxch);
-			pthread_mutex_lock(&dmxout_sendbuf_mtx);
+			pthread_mutex_lock(&stepmtx);
+			memset(channel_intensity + dmxidx, intensity, 3);
 			if(color >= 252) {
-				memset(fader_overridden + dmxidx, 0, 3);
+				CHFLAG_CLR_OVERRIDE_PROGRAMMA(dmxidx);
+				CHFLAG_CLR_OVERRIDE_PROGRAMMA(dmxidx+1);
+				CHFLAG_CLR_OVERRIDE_PROGRAMMA(dmxidx+2);
 			} else {
-				convert_color_and_intensity(color, apply_intensity(intensity, master_intensity), fader_overrides + dmxidx);
-				memcpy(dmxout_sendbuf + dmxidx, fader_overrides + dmxidx, 3);
-				memset(fader_overridden + dmxidx, 1, 3);
-				dmxout_dirty = 1;
+				CHFLAG_SET_OVERRIDE_PROGRAMMA(dmxidx);
+				CHFLAG_SET_OVERRIDE_PROGRAMMA(dmxidx+1);
+				CHFLAG_SET_OVERRIDE_PROGRAMMA(dmxidx+2);
+				convert_color(color, channel_overrides + dmxidx);
 			}
-			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
+			pthread_cond_signal(&stepcond);
+			pthread_mutex_unlock(&stepmtx);
 			break;
 		case HANDLE_MASTER:
 			pthread_mutex_lock(&stepmtx);
@@ -285,11 +305,11 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					handlers[iidx].action = HANDLE_NONE;
 					update_input(iidx, inputbuf[iidx]);
 					break;
-				case 'C':
+				case 'V':
 					REQUIRE_MIN_LENGTH(4);
-					printf("net: Set %s channel %d to single channel %d\n", type, input_number, buf[3]);
-					handlers[iidx].action = HANDLE_SINGLE_CHANNEL;
-					handlers[iidx].data.single_channel.channel = buf[3];
+					printf("net: Set raw %s channel %d to channel %d\n", type, input_number, buf[3]);
+					handlers[iidx].action = HANDLE_RAW_VALUE;
+					handlers[iidx].data.raw_value.channel = buf[3];
 					break;
 				case '2':
 					REQUIRE_MIN_LENGTH(5);
@@ -353,11 +373,11 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 				switch(handlers[iidx].action) {
 					case HANDLE_NONE:
 						break;
-					case HANDLE_SINGLE_CHANNEL:
-						client_printf(c, "%sC%c", chdesc, handlers[iidx].data.single_channel.channel+1);
+					case HANDLE_RAW_VALUE:
+						client_printf(c, "%sV%c", chdesc, dmxindex_to_channel(handlers[iidx].data.raw_value.channel));
 						break;
 					case HANDLE_LED_2CH_INTENSITY:
-						client_printf(c, "%s2%c%c", chdesc, handlers[iidx].data.led_2ch.other_input+1, handlers[iidx].data.led_2ch.base_channel+1);
+						client_printf(c, "%s2%c%c", chdesc, dmxindex_to_channel(handlers[iidx].data.led_2ch.other_input), dmxindex_to_channel(handlers[iidx].data.led_2ch.base_channel));
 						break;
 					case HANDLE_LED_2CH_COLOR:
 						// wordt geconfigt via HANDLE_LED_2CH_INTENSITY
@@ -399,12 +419,17 @@ prog_runner(void *dummy) {
 		while(programma_steps > step) {
 			int dmxidx;
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
-			printf("program_step: ");
-			for(dmxidx = 0; programma_channels > dmxidx; dmxidx++) {
-				dmxout_sendbuf[dmxidx] = apply_intensity(fader_overridden[dmxidx] ? fader_overrides[dmxidx] : apply_intensity(programma[step][dmxidx], program_intensity), master_intensity);
-				printf("%d: %03d; ", dmxindex_to_channel(dmxidx), dmxout_sendbuf[dmxidx]);
+			for(dmxidx = 0; DMX_CHANNELS > dmxidx; dmxidx++) {
+				if(CHFLAG_GET_OVERRIDE_PROGRAMMA(dmxidx) || dmxidx > programma_steps) {
+					dmxout_sendbuf[dmxidx] = channel_overrides[dmxidx];
+				} else {
+					dmxout_sendbuf[dmxidx] = apply_intensity(programma[step][dmxidx], program_intensity);
+				}
+				dmxout_sendbuf[dmxidx] = apply_intensity(dmxout_sendbuf[dmxidx], channel_intensity[dmxidx]);
+				if(!CHFLAG_GET_IGNORE_MASTER(dmxidx)) {
+					dmxout_sendbuf[dmxidx] = apply_intensity(dmxout_sendbuf[dmxidx], master_intensity);
+				}
 			}
-			printf("\n");
 			if(mk2c_lost) {
 				dmxout_dirty = 1;
 				pthread_mutex_unlock(&dmxout_sendbuf_mtx);
@@ -475,8 +500,9 @@ reset_vars() {
 	}
 	for(dmxidx = 0; DMX_CHANNELS > dmxidx; dmxidx++) {
 		dmxout_sendbuf[dmxidx] = 0;
-		fader_overridden[dmxidx] = 0;
-		fader_overrides[dmxidx] = 0;
+		channel_flags[dmxidx] = 0;
+		channel_intensity[dmxidx] = 255;
+		channel_overrides[dmxidx] = 0;
 	}
 	dmxout_dirty = 1;
 	pthread_mutex_unlock(&dmxout_sendbuf_mtx);
