@@ -289,7 +289,6 @@ read_client(struct connection *c) {
 
 	c->inbuf_pos += n;
 	assert(c->inbuf_pos >= 0 && c->inbuf_pos <= sizeof(c->inbuf));
-	c->inbuf[c->inbuf_pos] = 0;
 
 	int offset = 0, processed;
 	do {
