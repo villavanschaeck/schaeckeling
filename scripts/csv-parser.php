@@ -117,7 +117,7 @@
 				case 'ledpar':
 					// XXX default color and intensity
 					$rgb = apply_intensity($info['color'], $info['intensity']);
-					array_splice($step, $info['channel'], 3, $rgb);
+					array_splice($step, $info['channel']-1, 3, $rgb);
 					break;
 				default:
 					assert(!"reached");
