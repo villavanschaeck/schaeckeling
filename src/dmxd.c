@@ -68,10 +68,10 @@ int program_running = 1;
 long programma_wait = 1000000;
 struct timespec nextstep;
 
-char **programma = NULL;
+char *programma = NULL;
 int programma_steps = 1, programma_channels = 0;
 
-char **new_programma = NULL;
+char *new_programma = NULL;
 int new_programma_steps, new_programma_channels;
 
 #define CHFLAG_IGNORE_MASTER 1
@@ -471,7 +471,7 @@ prog_runner(void *dummy) {
 				if(CHFLAG_GET_OVERRIDE_PROGRAMMA(dmxidx) || dmxidx >= programma_channels) {
 					dmxout_sendbuf[dmxidx] = channel_overrides[dmxidx];
 				} else {
-					dmxout_sendbuf[dmxidx] = apply_intensity(programma[step][dmxidx], program_intensity);
+					dmxout_sendbuf[dmxidx] = apply_intensity(programma[step * programma_channels + dmxidx], program_intensity);
 				}
 				dmxout_sendbuf[dmxidx] = apply_intensity(dmxout_sendbuf[dmxidx], channel_intensity[dmxidx]);
 				if(!CHFLAG_GET_IGNORE_MASTER(dmxidx)) {
