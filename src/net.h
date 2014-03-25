@@ -14,7 +14,7 @@ struct connection {
 	struct linkedbuf_ptr *outbuf;
 	struct linkedbuf_ptr **outbuf_tail;
 	size_t inbuf_pos;
-	char inbuf[64];
+	char inbuf[600];
 };
 
 void init_net();
