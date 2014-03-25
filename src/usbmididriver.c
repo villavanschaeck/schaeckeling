@@ -44,6 +44,10 @@ usbmidi_read_data(void *_ctx, const unsigned char *buffer, int len) {
 	midi_print_buf("< ", buffer, cmdlen);
 	switch(buffer[0]) {
 		case 0xb0:
+			if(buffer[2] == 0xb0) {
+				// Hack: The LC2412 sends this message after powering on
+				break;
+			}
 			midi_changed(buffer[1], buffer[2]);
 			break;
 		case 0xf0:
