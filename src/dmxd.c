@@ -411,12 +411,15 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					if(programma != NULL) {
 						free(programma);
 					}
+					pthread_mutex_lock(&stepmtx);
 					programma = new_programma;
 					programma_steps = new_programma_steps;
 					programma_channels = new_programma_channels;
 					new_programma = NULL;
 					new_programma_steps = -1;
 					new_programma_channels = -1;
+					pthread_cond_signal(&stepcond);
+					pthread_mutex_unlock(&stepmtx);
 					break;
 				default:
 					return -1;
