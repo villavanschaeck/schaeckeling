@@ -11,7 +11,7 @@ $(APP): dmxd.o dmxdriver.o input.o colors.o mididriver.o nanokontroldriver.o net
 dmxdriver.o: dmxdriver.c dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxdriver.c
 
-dmxd.o: dmxd.c dmxd.h input.o dmxdriver.h programma.c
+dmxd.o: dmxd.c dmxd.h input.o dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxd.c
 
 input.o: input.c dmxd.h dmxdriver.h

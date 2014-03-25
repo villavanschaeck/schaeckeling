@@ -133,17 +133,16 @@
 	}
 	fclose($fh);
 
-	$out = "// Lichtprogramma\n";
-	$out .= "// Auteur: ". $author ."\n";
-	$out .= 'int programma_steps = '. count($steps) .";\n";
-	$out .= 'int programma_channels = '. $useChannels .";\n";
-	$out .= 'unsigned char programma['. count($steps) .']['. $useChannels ."] = {\n";
-	foreach($steps as $step) {
-		$out .= "\t{". implode(', ', array_map(function($v) { return sprintf('% 3d', $v); }, $step)) ."},\n";
+	$out = 'PN'. format_number_as_two_bytes($useChannels) . format_number_as_two_bytes(count($steps));
+	foreach($steps as $n => $step) {
+		$out .= 'PS'. format_number_as_two_bytes($n) . implode('', array_map('chr', $step));
 	}
-	$out = substr($out, 0, -2) ."\n";
-	$out .= "};\n";
+	$out .= 'PA';
 	echo $out;
+
+	function format_number_as_two_bytes($nr) {
+		return chr(floor($nr / 256)) . chr($nr % 256);
+	}
 
 	function parse_color($color) {
 		static $colors = array(

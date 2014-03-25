@@ -68,7 +68,11 @@ int program_running = 1;
 long programma_wait = 1000000;
 struct timespec nextstep;
 
-#include "programma.c"
+char **programma = NULL;
+int programma_steps = 1, programma_channels = 0;
+
+char **new_programma = NULL;
+int new_programma_steps, new_programma_channels;
 
 #define CHFLAG_IGNORE_MASTER 1
 #define CHFLAG_OVERRIDE_PROGRAMMA 2
@@ -363,6 +367,50 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 			pthread_cond_signal(&stepcond);
 			pthread_mutex_unlock(&stepmtx);
 			break;
+		case 'P':
+			REQUIRE_MIN_LENGTH(2);
+			switch(buf[1]) {
+				case 'N': // new
+					REQUIRE_MIN_LENGTH(6);
+					if(new_programma != NULL) {
+						free(new_programma);
+					}
+					new_programma_channels = buf[2] * 256 + buf[3];
+					new_programma_steps = buf[4] * 256 + buf[5];
+					if(new_programma_steps < 1) {
+						return -1;
+					}
+					new_programma = calloc(new_programma_steps, new_programma_channels);
+					break;
+				case 'S': // step
+					if(new_programma == NULL) {
+						return -1;
+					}
+					REQUIRE_MIN_LENGTH(4 + new_programma_channels);
+					int step = buf[2] * 256 + buf[3];
+					if(step >= new_programma_steps) {
+						return -1;
+					}
+					memcpy(new_programma + step * new_programma_channels, buf + 4, new_programma_channels);
+					break;
+				case 'A': // activate
+					if(new_programma_steps < 1) {
+						return -1;
+					}
+					if(programma != NULL) {
+						free(programma);
+					}
+					programma = new_programma;
+					programma_steps = new_programma_steps;
+					programma_channels = new_programma_channels;
+					new_programma = NULL;
+					new_programma_steps = -1;
+					new_programma_channels = -1;
+					break;
+				default:
+					return -1;
+			}
+			break;
 		case 'G':
 			REQUIRE_MIN_LENGTH(1);
 			printf("Sending settings to %p\n", c);
@@ -420,7 +468,7 @@ prog_runner(void *dummy) {
 			int dmxidx;
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			for(dmxidx = 0; DMX_CHANNELS > dmxidx; dmxidx++) {
-				if(CHFLAG_GET_OVERRIDE_PROGRAMMA(dmxidx) || dmxidx > programma_steps) {
+				if(CHFLAG_GET_OVERRIDE_PROGRAMMA(dmxidx) || dmxidx > programma_channels) {
 					dmxout_sendbuf[dmxidx] = channel_overrides[dmxidx];
 				} else {
 					dmxout_sendbuf[dmxidx] = apply_intensity(programma[step][dmxidx], program_intensity);
