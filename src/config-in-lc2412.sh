@@ -53,3 +53,7 @@ printf 'M\x0A2\x16\x51'
 
 # LED-par 12
 printf 'M\x0B2\x17\x59'
+
+# Stroboscoop
+printf 'M\x19V\x61' # X-fade: strobe frequency
+printf 'V\x62\xff' # strobe intensity vast op 255

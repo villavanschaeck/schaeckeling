@@ -356,6 +356,17 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 				handlers[iidx].action = HANDLE_NONE;
 			}
 			break;
+		case 'V':
+			REQUIRE_MIN_LENGTH(3);
+			pthread_mutex_lock(&dmxout_sendbuf_mtx);
+			dmxidx = dmx_channel_to_dmxindex(buf[1]);
+			CHFLAG_SET_IGNORE_MASTER(dmxidx);
+			CHFLAG_SET_OVERRIDE_PROGRAMMA(dmxidx);
+			channel_overrides[dmxidx] = buf[2];
+			dmxout_sendbuf[dmxidx] = buf[2];
+			dmxout_dirty = 1;
+			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
+			break;
 		case 'B':
 			REQUIRE_MIN_LENGTH(2);
 			programma_wait = 1000000 * 60 / buf[1];
