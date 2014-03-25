@@ -468,7 +468,7 @@ prog_runner(void *dummy) {
 			int dmxidx;
 			pthread_mutex_lock(&dmxout_sendbuf_mtx);
 			for(dmxidx = 0; DMX_CHANNELS > dmxidx; dmxidx++) {
-				if(CHFLAG_GET_OVERRIDE_PROGRAMMA(dmxidx) || dmxidx > programma_channels) {
+				if(CHFLAG_GET_OVERRIDE_PROGRAMMA(dmxidx) || dmxidx >= programma_channels) {
 					dmxout_sendbuf[dmxidx] = channel_overrides[dmxidx];
 				} else {
 					dmxout_sendbuf[dmxidx] = apply_intensity(programma[step][dmxidx], program_intensity);
