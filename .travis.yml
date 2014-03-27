@@ -2,4 +2,5 @@ language: c
 before_script:
   - sudo apt-get update -qq
   - sudo apt-get install -y libftdi-dev
+  - cp src/api_key_zero.h src/api_key.h
 script: make -C src
