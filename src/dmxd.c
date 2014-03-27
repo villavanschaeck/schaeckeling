@@ -180,7 +180,7 @@ update_input(inputidx_t input, unsigned char new) {
 	int dmxidx;
 
 	if (abs(inputbuf[input] - new) < 3) {
-		break;
+		return;
 	}
 	inputbuf[input] = new;
 
