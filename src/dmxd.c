@@ -179,6 +179,9 @@ update_input(inputidx_t input, unsigned char new) {
 	dmxchannel_t dmxch;
 	int dmxidx;
 
+	if (abs(inputbuf[input] - new) < 3) {
+		break;
+	}
 	inputbuf[input] = new;
 
 	switch(handlers[input].action) {
