@@ -1,5 +1,5 @@
 language: c
 before_script:
-	- sudo apt-get update -qq
-	- sudo apt-get install -y libftdi-dev
+  - sudo apt-get update -qq
+  - sudo apt-get install -y libftdi-dev
 script: make -C src
