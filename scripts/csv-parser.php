@@ -133,7 +133,7 @@
 	}
 	fclose($fh);
 
-	$out = 'PN'. format_number_as_two_bytes($useChannels) . format_number_as_two_bytes(count($steps));
+	$out = 'PN'. format_number_as_two_bytes($useChannels) . format_number_as_two_bytes(count($steps)) . format_steps_per_beat($spb);
 	foreach($steps as $n => $step) {
 		$out .= 'PS'. format_number_as_two_bytes($n) . implode('', array_map('chr', $step));
 	}
@@ -142,6 +142,13 @@
 
 	function format_number_as_two_bytes($nr) {
 		return chr(floor($nr / 256)) . chr($nr % 256);
+	}
+
+	function format_steps_per_beat($spb) {
+		assert($spb != 0);
+		assert($spb < 256);
+		assert($spb > -255);
+		return chr($spb >= 1 ? $spb : $spb + 128);
 	}
 
 	function parse_color($color) {

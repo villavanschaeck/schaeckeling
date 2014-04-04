@@ -69,10 +69,10 @@ long programma_wait = 1000000;
 struct timespec nextstep;
 
 char *programma = NULL;
-int programma_steps = 1, programma_channels = 0;
+int programma_steps = 1, programma_channels = 0, programma_spb = 1;
 
 char *new_programma = NULL;
-int new_programma_steps, new_programma_channels;
+int new_programma_steps, new_programma_channels, new_programma_spb = 1;
 
 #define CHFLAG_IGNORE_MASTER 1
 #define CHFLAG_OVERRIDE_PROGRAMMA 2
@@ -258,6 +258,11 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_mutex_lock(&stepmtx);
 			// BPM range: 30 - 180
 			long new_wait = 1000000 * 60 / (30 + ((180 - 30) * new / 255));
+			if(programma_spb >= 1) {
+				new_wait /= programma_spb;
+			} else {
+				new_wait *= -programma_spb;
+			}
 			if(programma_wait > new_wait) {
 				decrement_timespec(&nextstep, programma_wait - new_wait);
 			}
@@ -369,7 +374,13 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 			break;
 		case 'B':
 			REQUIRE_MIN_LENGTH(2);
+			// TODO: HANDLE_BPM does this a lot better. Generalize.
 			programma_wait = 1000000 * 60 / buf[1];
+			if(programma_spb >= 1) {
+				programma_wait /= programma_spb;
+			} else {
+				programma_wait *= -programma_spb;
+			}
 			break;
 		case 'S':
 			REQUIRE_MIN_LENGTH(1);
@@ -382,12 +393,13 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 			REQUIRE_MIN_LENGTH(2);
 			switch(buf[1]) {
 				case 'N': // new
-					REQUIRE_MIN_LENGTH(6);
+					REQUIRE_MIN_LENGTH(7);
 					if(new_programma != NULL) {
 						free(new_programma);
 					}
 					new_programma_channels = buf[2] * 256 + buf[3];
 					new_programma_steps = buf[4] * 256 + buf[5];
+					new_programma_spb = (buf[6] < 128) ? buf[6] : buf[6] - 128-2;
 					if(new_programma_steps < 1) {
 						return -1;
 					}
@@ -415,9 +427,11 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					programma = new_programma;
 					programma_steps = new_programma_steps;
 					programma_channels = new_programma_channels;
+					programma_spb = new_programma_spb;
 					new_programma = NULL;
 					new_programma_steps = -1;
 					new_programma_channels = -1;
+					new_programma_spb = 1;
 					pthread_cond_signal(&stepcond);
 					pthread_mutex_unlock(&stepmtx);
 					break;
