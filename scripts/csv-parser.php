@@ -20,21 +20,21 @@
 			switch($data[0]) {
 				case '!spb':
 					if(empty($data[1]) || !preg_match('@^(1/)?(\d+)$@', $data[1], $m)) {
-						echo "Error: Line ". $line .": Steps Per Beat is not a number\n";
+						fprintf(STDERR, "Error: Line ". $line .": Steps Per Beat is not a number\n");
 						exit(1);
 					}
 					$spb = intval(($m[1] == '1/') ? -$m[2] : $m[1]);
 					break;
 				case '!author':
 					if(empty($data[1])) {
-						echo "Error: Line ". $line .": Author is empty\n";
+						fprintf(STDERR, "Error: Line ". $line .": Author is empty\n");
 						exit(1);
 					}
 					$author = $data[1];
 					break;
 				case '!empty':
 					if(empty($data[1]) || !in_array(strtolower($data[1]), array('off', 'previous'))) {
-						echo "Error: Line ". $line .": Empty is invalid. Should be 'off' or 'previous'\n";
+						fprintf(STDERR, "Error: Line ". $line .": Empty is invalid. Should be 'off' or 'previous'\n");
 						exit(1);
 					}
 					$empty = strtolower($data[1]);
@@ -44,7 +44,7 @@
 				case '!repeat':
 					// XXX
 				default:
-					echo "Error: Line ". $line .": Invalid macro ". $data[0] ."\n";
+					fprintf(STDERR, "Error: Line ". $line .": Invalid macro ". $data[0] ."\n");
 					exit(1);
 			}
 			continue;
@@ -66,7 +66,7 @@
 					$header[$n]['channel'] = 1+($m[1]-1)*8;
 					$header[$n]['channels'] = 8;
 				} else {
-					echo "Error: Line ". $line .": Invalid column ". $col ."\n";
+					fprintf(STDERR, "Error: Line ". $line .": Invalid column ". $col ."\n");
 					exit(1);
 				}
 				$useChannels = max($useChannels, $header[$n]['channel'] + $header[$n]['channels'] - 1);
@@ -74,7 +74,7 @@
 			continue;
 		}
 		if(count($data) > count($header)) {
-			echo "Error: Line ". $line .": Too many columns (". count($data) ." with only ". count($header) ." in the header)\n";
+			fprintf(STDERR, "Error: Line ". $line .": Too many columns (". count($data) ." with only ". count($header) ." in the header)\n");
 			exit(1);
 		}
 		$actuators = array();
@@ -86,7 +86,7 @@
 			$col = $header[$n];
 			if(!$cell && $empty == 'previous') {
 				if(!$previous) {
-					echo "Error: Line ". $line .": Invalid empty value for ". $col['name'] ." (no previous value yet)\n";
+					fprintf(STDERR, "Error: Line ". $line .": Invalid empty value for ". $col['name'] ." (no previous value yet)\n");
 					exit(1);
 				}
 				$cell = $previous[$n];
@@ -107,7 +107,7 @@
 						break;
 				}
 			} catch(Exception $e) {
-				echo "Error: Line ". $line .": Invalid value ". $cell ." for ". $col['name'] ."\n";
+				fprintf(STDERR, "Error: Line ". $line .": Invalid value ". $cell ." for ". $col['name'] ."\n");
 				exit(1);
 			}
 		}
@@ -128,7 +128,7 @@
 		$previous = $data;
 	}
 	if(!feof($fh)) {
-		print("Error on line ". $line ."\n");
+		fprintf(STDERR, "Error on line ". $line ."\n");
 		exit(1);
 	}
 	fclose($fh);
