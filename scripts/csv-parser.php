@@ -23,7 +23,7 @@
 						fprintf(STDERR, "Error: Line ". $line .": Steps Per Beat is not a number\n");
 						exit(1);
 					}
-					$spb = intval(($m[1] == '1/') ? -$m[2] : $m[1]);
+					$spb = intval(($m[1] == '1/') ? -$m[2] : $m[2]);
 					break;
 				case '!author':
 					if(empty($data[1])) {
