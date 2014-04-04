@@ -164,7 +164,7 @@
 			'white'          => array(220, 200, 100),
 			'black'          => array(  0,   0,   0),
 		);
-		if(preg_match('/^[0-9a-f]{6}$/', $color)) {
+		if(preg_match('/^[0-9a-fA-F]{6}$/', $color)) {
 			$rgb = array_map('hexdec', str_split($color, 2));
 		} elseif(isset($colors[trim($color)])) {
 			$rgb = $colors[trim($color)];
