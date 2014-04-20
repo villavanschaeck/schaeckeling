@@ -626,6 +626,7 @@ main(int argc, char **argv) {
 	reset_vars();
 
 	read_config_file("config.dat");
+	read_config_file("program.dat");
 
 	init_communications();
 	init_net();
