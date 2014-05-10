@@ -24,7 +24,7 @@
 #include "dmxd.h"
 
 // Number of taps to remember and average over
-#define TAPSYNC_REMEMBER_TAPS	3
+#define TAPSYNC_REMEMBER_TAPS	6
 // The minimum number of taps within the deviation before the BPM is adjusted
 #define TAPSYNC_MIN_INTERVALS	2
 // The maximum deviation an interval is allowed to be from the average before considered usable
