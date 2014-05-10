@@ -24,7 +24,7 @@
 #include "dmxd.h"
 
 
-enum handle_action { HANDLE_NONE, HANDLE_RAW_VALUE, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT };
+enum handle_action { HANDLE_NONE, HANDLE_RAW_VALUE, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT, HANDLE_TAPSYNC };
 
 struct fader_handler {
 	enum handle_action action;
@@ -74,6 +74,8 @@ int programma_steps = 1, programma_channels = 0, programma_spb = 1;
 char *new_programma = NULL;
 int new_programma_steps, new_programma_channels, new_programma_spb = 1;
 
+struct timespec tapsync[3];
+
 #define CHFLAG_IGNORE_MASTER 1
 #define CHFLAG_OVERRIDE_PROGRAMMA 2
 
@@ -113,6 +115,12 @@ decrement_timespec(struct timespec *ts, long sub) {
 		}
 	}
 	assert(ts->tv_nsec >= 0);
+}
+
+static long inline
+subtract_timespecs(struct timespec *a, struct timespec *b) {
+	// NB: This will return microseconds!
+	return (1000000L * (a->tv_sec - b->tv_sec)) + (a->tv_nsec - b->tv_nsec)/1000;
 }
 
 static int inline
@@ -171,6 +179,52 @@ flush_dmxout_sendbuf(void) {
 		dmxout_dirty = 0;
 	}
 	pthread_mutex_unlock(&dmxout_sendbuf_mtx);
+}
+
+static void
+tapsync_tap() {
+	int i;
+	for(i = sizeof(tapsync) / sizeof(struct timespec)-1; 0 <= i; i--) {
+		tapsync[i+1] = tapsync[i];
+	}
+	clock_gettime(CLOCK_REALTIME, &tapsync[0]);
+
+	long diff = subtract_timespecs(&tapsync[0], &tapsync[1]);
+	for(i = 1; sizeof(tapsync) / sizeof(struct timespec) > i; i++) {
+		long newdiff = subtract_timespecs(&tapsync[i], &tapsync[i+1]);
+		if(labs(diff - newdiff) > diff * 0.1) {
+			if(i <= 1) {
+				return;
+			}
+			break;
+		}
+		diff = ((diff * i) + newdiff) / (i+1);
+	}
+	if(diff > 0) {
+		pthread_mutex_lock(&stepmtx);
+		if(programma_spb >= 1) {
+			diff /= programma_spb;
+		} else {
+			diff *= -programma_spb;
+		}
+		long next_step_in = subtract_timespecs(&nextstep, &tapsync[0]);
+		if(next_step_in > programma_wait / 2) {
+			// we tappen prev_step
+			printf("je was %ld te laat\n", programma_wait - next_step_in);
+			nextstep.tv_sec = tapsync[0].tv_sec;
+			nextstep.tv_nsec = tapsync[0].tv_nsec;
+			increment_timespec(&nextstep, diff);
+		} else {
+			// we tappen next_step
+			printf("je bent %ld te vroeg\n", next_step_in);
+			nextstep.tv_sec = tapsync[0].tv_sec;
+			nextstep.tv_nsec = tapsync[0].tv_nsec;
+		}
+		programma_wait = diff;
+		printf("programma_wait: %ld\n", diff);
+		pthread_cond_signal(&stepcond);
+		pthread_mutex_unlock(&stepmtx);
+	}
 }
 
 void
@@ -285,6 +339,9 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_cond_signal(&stepcond);
 			pthread_mutex_unlock(&stepmtx);
 			return;
+		case HANDLE_TAPSYNC:
+			tapsync_tap();
+			return;
 	}
 }
 
@@ -350,6 +407,10 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 				case 'D':
 					printf("net: Set %s channel %d to blackout\n", type, input_number);
 					handlers[iidx].action = HANDLE_BLACKOUT;
+					break;
+				case 'T':
+					printf("net: Set %s channel %d to tapsync\n", type, input_number);
+					handlers[iidx].action = HANDLE_TAPSYNC;
 					break;
 				default:
 					return -1;
@@ -473,8 +534,15 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					case HANDLE_BLACKOUT:
 						client_printf(c, "%sD", chdesc);
 						break;
+					case HANDLE_TAPSYNC:
+						client_printf(c, "%sT", chdesc);
+						break;
 				}
 			}
+			break;
+		case '\n':
+			REQUIRE_MIN_LENGTH(1);
+			tapsync_tap();
 			break;
 		default:
 			return -1;
