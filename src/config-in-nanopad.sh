@@ -15,6 +15,9 @@ printf 'M\x29S'
 # Blackout
 printf 'M\x2DD'
 
+# Tapsync
+printf 'M\x2ET'
+
 # LED-par 1
 printf 'M\x002\x10\x01'
 
@@ -30,8 +33,6 @@ printf 'M\x032\x13\x19'
 # LED-par 5
 printf 'M\x042\x14\x21'
 
-# LED-par 6
-printf 'M\x052\x15\x29'
-
-# LED-par 7
-printf 'M\x062\x16\x31'
+# Single-channel spots
+printf 'M\x05V\x29'
+printf 'M\x06V\x2a'
