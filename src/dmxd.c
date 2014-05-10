@@ -23,6 +23,12 @@
 #include "colors.h"
 #include "dmxd.h"
 
+// Number of taps to remember and average over
+#define TAPSYNC_REMEMBER_TAPS	3
+// The minimum number of taps within the deviation before the BPM is adjusted
+#define TAPSYNC_MIN_INTERVALS	2
+// The maximum deviation an interval is allowed to be from the average before considered usable
+#define TAPSYNC_MAX_DEVIATION	0.10
 
 enum handle_action { HANDLE_NONE, HANDLE_RAW_VALUE, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT, HANDLE_TAPSYNC };
 
@@ -74,7 +80,7 @@ int programma_steps = 1, programma_channels = 0, programma_spb = 1;
 char *new_programma = NULL;
 int new_programma_steps, new_programma_channels, new_programma_spb = 1;
 
-struct timespec tapsync[3];
+struct timespec tapsync[TAPSYNC_REMEMBER_TAPS];
 
 #define CHFLAG_IGNORE_MASTER 1
 #define CHFLAG_OVERRIDE_PROGRAMMA 2
@@ -184,16 +190,16 @@ flush_dmxout_sendbuf(void) {
 static void
 tapsync_tap() {
 	int i;
-	for(i = sizeof(tapsync) / sizeof(struct timespec)-1; 0 <= i; i--) {
-		tapsync[i+1] = tapsync[i];
+	for(i = TAPSYNC_REMEMBER_TAPS; 0 < i; i--) {
+		tapsync[i] = tapsync[i-1];
 	}
 	clock_gettime(CLOCK_REALTIME, &tapsync[0]);
 
 	long diff = subtract_timespecs(&tapsync[0], &tapsync[1]);
-	for(i = 1; sizeof(tapsync) / sizeof(struct timespec) > i; i++) {
+	for(i = 1; TAPSYNC_REMEMBER_TAPS > i; i++) {
 		long newdiff = subtract_timespecs(&tapsync[i], &tapsync[i+1]);
-		if(labs(diff - newdiff) > diff * 0.1) {
-			if(i <= 1) {
+		if(labs(diff - newdiff) > diff * TAPSYNC_MAX_DEVIATION) {
+			if(i < TAPSYNC_MIN_INTERVALS) {
 				return;
 			}
 			break;
