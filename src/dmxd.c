@@ -346,6 +346,9 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_mutex_unlock(&stepmtx);
 			return;
 		case HANDLE_TAPSYNC:
+			if(new < 64) {
+				break;
+			}
 			tapsync_tap();
 			return;
 	}
