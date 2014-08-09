@@ -3,6 +3,13 @@ CFLAGS=-Wall -g -std=c99
 LDFLAGS=-lpthread -lftdi -lrt
 APP=dmxmain
 
+ifdef DISABLE_NANOKONTROL
+CFLAGS+= -DDISABLE_NANOKONTROL
+endif
+ifdef DISABLE_USBMIDI
+CFLAGS+= -DDISABLE_USBMIDI
+endif
+
 all: $(APP) dmxdog
 
 $(APP): dmxd.o dmxdriver.o input.o colors.o mididriver.o nanokontroldriver.o net.o usbmididriver.o

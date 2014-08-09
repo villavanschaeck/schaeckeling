@@ -1,3 +1,4 @@
+#ifndef DISABLE_NANOKONTROL
 #include <sys/types.h>
 #include <assert.h>
 #include <err.h>
@@ -164,4 +165,5 @@ main(int argc, char **argv) {
 
 	return 0;
 }
+#endif
 #endif

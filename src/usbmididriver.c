@@ -1,3 +1,4 @@
+#ifndef DISABLE_USBMIDI
 #include <sys/types.h>
 #include <assert.h>
 #include <err.h>
@@ -77,3 +78,4 @@ teardown_usbmidi(struct usbmidi_context *ctx) {
 	teardown_midi(&ctx->midictx);
 	free(ctx);
 }
+#endif
