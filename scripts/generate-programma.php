@@ -9,12 +9,21 @@
 	);
 	$channelsPerLamp = 8;
 	$c = array(
-		'off' => array(0, 0, 0),
+		#'off' => array(0, 0, 0),
 		'white' => array(220, 200, 100),
+		'red' => array(255, 0, 0),
+		'red' => array(255, 0, 0),
+		'red' => array(255, 0, 0),
 		'red' => array(255, 0, 0),
 		'orange' => array(255, 127, 0),
 		'yellow' => array(255, 255, 0),
 		'green' => array(0, 255, 0),
+		'green' => array(0, 255, 0),
+		'green' => array(0, 255, 0),
+		'green' => array(0, 255, 0),
+		'blue' => array(0, 0, 255),
+		'blue' => array(0, 0, 255),
+		'blue' => array(0, 0, 255),
 		'blue' => array(0, 0, 255),
 		'cyan' => array(0, 255, 255),
 		'purple' => array(200, 0, 255),
@@ -26,7 +35,23 @@
 
 	$modes = array(
 		'all',
-		'random',
+		#'random',
+		'changeone',
+		'changetwo',
+		'flashone',
+		'flashtwo',
+		'changeone',
+		'changetwo',
+		'flashone',
+		'flashtwo',
+		'flipblack',
+		'flipblack',
+		'flipblack',
+		'flipblack',
+		'flipblack',
+		'flipblack',
+		'flipblack',
+		'flipblack',
 	);
 	if($lamps >= 4) {
 		$modes[] = 'grouped';
@@ -34,10 +59,11 @@
 
 	$channels = $lamps * $channelsPerLamp;
 	$steps = count($c) * $lamps * 10;
+	$prevState = array_fill(0, $channels, '  0');
 
 	$prog = array();
 	for($step = 0; $step < $steps; $step++) {
-		$state = array_fill(0, $channels, '  0');
+		$state = array_fill(0, $channels, 0);
 
 		$mode = $modes[array_rand($modes)];
 		switch($mode) {
@@ -46,7 +72,6 @@
 				for($lamp = 0; $lamp < $lamps; $lamp++) {
 					for($i = 0; $i < 3; $i++) {
 						$v = round($color[$i] * $intensity[$lamp]);
-						$v = sprintf('% 3d', $v);
 						$state[$lamp * $channelsPerLamp + $i] = $v;
 					}
 				}
@@ -59,7 +84,6 @@
 					foreach($group as $lamp) {
 						for($i = 0; $i < 3; $i++) {
 							$v = round($color[$i] * $intensity[$lamp]);
-							$v = sprintf('% 3d', $v);
 							$state[$lamp * $channelsPerLamp + $i] = $v;
 						}
 					}
@@ -70,13 +94,44 @@
 					$color = $c[array_rand($c)];
 					for($i = 0; $i < 3; $i++) {
 						$v = round($color[$i] * $intensity[$lamp]);
-						$v = sprintf('% 3d', $v);
 						$state[$lamp * $channelsPerLamp + $i] = $v;
 					}
 				}
 				break;
+			case 'changeone':
+			case 'changetwo':
+			case 'flashone':
+			case 'flashtwo':
+				if(strncmp($mode, 'change', 6) == 0) {
+					$state = $prevState;
+				}
+				for($times = substr($mode, -3) == 'one' ? 1 : 2; $times; $times--) {
+					$lamp = mt_rand(0, $lamps-1);
+					$color = $c[array_rand($c)];
+					for($i = 0; $i < 3; $i++) {
+						$v = round($color[$i] * $intensity[$lamp]);
+						$state[$lamp * $channelsPerLamp + $i] = $v;
+					}
+				}
+				break;
+			case 'flipblack':
+				$state = $prevState;
+				$change = array_merge(array_fill(0, $lamps / 2, false), array_fill(0, $lamps / 2, true));
+				shuffle($change);
+				for($lamp = 0; $lamp < $lamps; $lamp++) {
+					if($change[$lamp]) {
+						$wasBlack = (array_slice($prevState, $lamp * $channelsPerLamp, 3) == array(0, 0, 0));
+						$color = $wasBlack ? $c[array_rand($c)] : array(0, 0, 0);
+						for($i = 0; $i < 3; $i++) {
+							$v = round($color[$i] * $intensity[$lamp]);
+							$state[$lamp * $channelsPerLamp + $i] = $v;
+						}
+					}
+				}
+				break;
 		}
-		$prog[] = '{'. implode(', ', $state) .'}';
+		$prog[] = '{'. implode(', ', array_map(function($v) { return sprintf('% 3d', $v); }, $state)) .'}';
+		$prevState = $state;
 	}
 ?>
 int programma_steps = <?php echo $steps; ?>;
