@@ -61,4 +61,7 @@ printf 'V\x62\xff' # strobe intensity vast op 255
 # Laser
 printf 'M\x1fL\x65' # Eerste kanaal van de laser
 
-# volgende mag op 101+11 = 112 (0x70)
+# Rookmachine
+printf 'M\x20V\x70'
+
+# volgende mag op 0x71
