@@ -30,7 +30,7 @@
 // The maximum deviation an interval is allowed to be from the average before considered usable
 #define TAPSYNC_MAX_DEVIATION	0.10
 
-enum handle_action { HANDLE_NONE, HANDLE_RAW_VALUE, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT, HANDLE_TAPSYNC };
+enum handle_action { HANDLE_NONE, HANDLE_RAW_VALUE, HANDLE_LED_2CH_INTENSITY, HANDLE_LED_2CH_COLOR, HANDLE_MASTER, HANDLE_BPM, HANDLE_CHASE, HANDLE_RUN, HANDLE_BLACKOUT, HANDLE_TAPSYNC, HANDLE_LASER };
 
 struct fader_handler {
 	enum handle_action action;
@@ -42,6 +42,9 @@ struct fader_handler {
 			inputidx_t other_input;
 			dmxchannel_t base_channel;
 		} led_2ch;
+		struct {
+			dmxchannel_t base_channel;
+		} laser;
 	} data;
 };
 
@@ -351,6 +354,23 @@ update_input(inputidx_t input, unsigned char new) {
 			}
 			tapsync_tap();
 			return;
+		case HANDLE_LASER:
+			if(new < 64) {
+				break;
+			}
+			pthread_mutex_lock(&dmxout_sendbuf_mtx);
+			dmxidx = dmx_channel_to_dmxindex(handlers[input].data.laser.base_channel);
+			CHFLAG_SET_IGNORE_MASTER(dmxidx);
+			CHFLAG_SET_OVERRIDE_PROGRAMMA(dmxidx);
+			if(channel_overrides[dmxidx] == 100) {
+				channel_overrides[dmxidx] = 0; // off
+			} else {
+				channel_overrides[dmxidx] = 100; // sound mode
+			}
+			dmxout_sendbuf[dmxidx] = channel_overrides[dmxidx];
+			dmxout_dirty = 1;
+			pthread_mutex_unlock(&dmxout_sendbuf_mtx);
+			return;
 	}
 }
 
@@ -420,6 +440,12 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 				case 'T':
 					printf("net: Set %s channel %d to tapsync\n", type, input_number);
 					handlers[iidx].action = HANDLE_TAPSYNC;
+					break;
+				case 'L':
+					REQUIRE_MIN_LENGTH(4);
+					printf("net: Set %s channel %d to laser on channel %d\n", type, input_number, buf[3]);
+					handlers[iidx].action = HANDLE_LASER;
+					handlers[iidx].data.laser.base_channel = buf[3];
 					break;
 				default:
 					return -1;
@@ -545,6 +571,9 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 						break;
 					case HANDLE_TAPSYNC:
 						client_printf(c, "%sT", chdesc);
+						break;
+					case HANDLE_LASER:
+						client_printf(c, "%sL%c", chdesc, dmxindex_to_channel(handlers[iidx].data.laser.base_channel));
 						break;
 				}
 			}

@@ -57,3 +57,8 @@ printf 'M\x0B2\x17\x59'
 # Stroboscoop
 printf 'M\x19V\x61' # X-fade: strobe frequency
 printf 'V\x62\xff' # strobe intensity vast op 255
+
+# Laser
+printf 'M\x1fL\x65' # Eerste kanaal van de laser
+
+# volgende mag op 101+11 = 112 (0x70)
