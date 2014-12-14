@@ -127,7 +127,7 @@ init_communications(void) {
 		fprintf(stderr, "init_communications: init_usbmidi failed.");
 	}
 #endif
-	if (has_any_input) {
+	if (!has_any_input) {
 		fprintf(stderr, "No input devices available. Defaulting to preprogrammed output.");
 	}
 
