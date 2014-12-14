@@ -128,7 +128,7 @@ init_communications(void) {
 	}
 #endif
 	if (!has_any_input) {
-		fprintf(stderr, "No input devices available. Defaulting to preprogrammed output.");
+		fprintf(stderr, "No input devices available. Defaulting to preprogrammed output.\n");
 	}
 
 	// Fix nanokontrol and usb-midi.
