@@ -8,8 +8,12 @@
 #include "usbmididriver.h"
 
 struct mk2_pro_context *mk2c;
+#ifndef DISABLE_NANOKONTROL
 struct nanokontrol2_context *nanokontrol2 = NULL;
+#endif
+#ifndef DISABLE_USBMIDI
 struct usbmidi_context *usbmidi = NULL;
+#endif
 volatile int mk2c_lost = 0;
 volatile int nanokontrol_lost = 0;
 volatile int midi_lost = 0;
@@ -100,6 +104,7 @@ reconnect_if_needed(void) {
 
 int
 init_communications(void) {
+	int has_any_input = 0;
 	mk2c = init_dmx_usb_mk2_pro(dmx_changed, dmx_input_completed, mk2c_error);
 	if (mk2c == NULL) {
 		abort(); // XXX
@@ -107,17 +112,21 @@ init_communications(void) {
 	// TODO auto-detection of nanokontrol and generic midi.
 #ifndef DISABLE_NANOKONTROL
 	nanokontrol2 = init_nanokontrol2("/dev/snd/midiC1D0");
-	if (nanokontrol2 == NULL) {
+	if (nanokontrol2 != NULL) {
+		has_any_input = 1;
+	} else {
 		fprintf(stderr, "init_communications: init_nanokontrol2 failed.");
 	}
 #endif
 #ifndef DISABLE_USBMIDI
 	usbmidi = init_usbmidi("/dev/snd/midiC1D0");
-	if (usbmidi == NULL) {
+	if (usbmidi != NULL) {
+		has_any_input = 1;
+	} else {
 		fprintf(stderr, "init_communications: init_usbmidi failed.");
 	}
 #endif
-	if (nanokontrol2 == NULL && usbmidi == NULL) {
+	if (has_any_input) {
 		fprintf(stderr, "No input devices available. Defaulting to preprogrammed output.");
 	}
 
@@ -137,26 +146,32 @@ send_dmx(unsigned char *dmxbytes) {
 
 void
 set_feedback_running(int running) {
+#ifndef DISABLE_NANOKONTROL
 	if(nanokontrol2 != NULL) {
 		nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_PLAY, running * 127);
 		if(!running) {
 			nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_CYCLE, 0);
 		}
 	}
+#endif
 }
 
 void
 set_feedback_blackout(int blackout) {
+#ifndef DISABLE_NANOKONTROL
 	if(nanokontrol2 != NULL) {
 		nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_RECORD, blackout * 127);
 	}
+#endif
 }
 
 void
 set_feedback_step() {
+#ifndef DISABLE_NANOKONTROL
 	if(nanokontrol2 != NULL) {
 		static int prev = 0;
 		prev = 127 - prev;
 		nanokontrol2_set_led(nanokontrol2, NANOKONTROL2_BTN_CYCLE, prev);
 	}
+#endif
 }
