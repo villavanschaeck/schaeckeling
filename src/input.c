@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "input-config.h"
 #include "schaeckeling.h"
 #include "dmxdriver.h"
 #include "dmxd.h"
