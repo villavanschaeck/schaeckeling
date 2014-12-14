@@ -3,13 +3,6 @@ CFLAGS=-Wall -g -std=c99
 LDFLAGS=-lpthread -lftdi -lrt
 APP=dmxmain
 
-ifdef DISABLE_NANOKONTROL
-CFLAGS+= -DDISABLE_NANOKONTROL
-endif
-ifdef DISABLE_USBMIDI
-CFLAGS+= -DDISABLE_USBMIDI
-endif
-
 all: $(APP) dmxdog
 
 $(APP): dmxd.o dmxdriver.o input.o colors.o mididriver.o nanokontroldriver.o net.o usbmididriver.o
@@ -21,7 +14,7 @@ dmxdriver.o: dmxdriver.c dmxdriver.h
 dmxd.o: dmxd.c dmxd.h input.o dmxdriver.h
 	$(CC) -c $(CFLAGS) dmxd.c
 
-input.o: input.c dmxd.h dmxdriver.h
+input.o: input.c dmxd.h dmxdriver.h input-config.h
 	$(CC) -c $(CFLAGS) input.c
 
 colors.o: colors.c
@@ -33,10 +26,10 @@ net.o: net.c
 mididriver.o: mididriver.c mididriver.h
 	$(CC) -c $(CFLAGS) mididriver.c
 
-usbmididriver.o: usbmididriver.c usbmididriver.h
+usbmididriver.o: usbmididriver.c usbmididriver.h input-config.h
 	$(CC) -c $(CFLAGS) usbmididriver.c
 
-nanokontroldriver.o: nanokontroldriver.c mididriver.h
+nanokontroldriver.o: nanokontroldriver.c mididriver.h input-config.h
 	$(CC) -c $(CFLAGS) nanokontroldriver.c
 
 dmxdog: dmxdog.c

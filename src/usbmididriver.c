@@ -1,3 +1,4 @@
+#include "input-config.h"
 #ifndef DISABLE_USBMIDI
 #include <sys/types.h>
 #include <assert.h>
