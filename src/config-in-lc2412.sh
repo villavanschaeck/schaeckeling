@@ -18,6 +18,9 @@ printf 'M\x18B'
 # Blackout
 printf 'M\x30D'
 
+# Tapsync
+printf 'M\x1ET\x00'
+
 # LED-par 1
 printf 'M\x002\x0C\x01'
 

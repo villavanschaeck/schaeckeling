@@ -43,6 +43,9 @@ struct fader_handler {
 			dmxchannel_t base_channel;
 		} led_2ch;
 		struct {
+			char rising_edge;
+		} tapsync;
+		struct {
 			dmxchannel_t base_channel;
 		} laser;
 	} data;
@@ -349,7 +352,7 @@ update_input(inputidx_t input, unsigned char new) {
 			pthread_mutex_unlock(&stepmtx);
 			return;
 		case HANDLE_TAPSYNC:
-			if(new < 64) {
+			if(handlers[input].data.tapsync.rising_edge && new < 64) {
 				break;
 			}
 			tapsync_tap();
@@ -438,8 +441,10 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 					handlers[iidx].action = HANDLE_BLACKOUT;
 					break;
 				case 'T':
-					printf("net: Set %s channel %d to tapsync\n", type, input_number);
+					REQUIRE_MIN_LENGTH(4);
+					printf("net: Set %s channel %d to tapsync%s\n", type, input_number, buf[3] ? " (on rising edge)" : "");
 					handlers[iidx].action = HANDLE_TAPSYNC;
+					handlers[iidx].data.tapsync.rising_edge = buf[3] ? 1 : 0;
 					break;
 				case 'L':
 					REQUIRE_MIN_LENGTH(4);
@@ -570,7 +575,7 @@ handle_data(struct connection *c, char *buf_s, size_t len) {
 						client_printf(c, "%sD", chdesc);
 						break;
 					case HANDLE_TAPSYNC:
-						client_printf(c, "%sT", chdesc);
+						client_printf(c, "%sT%c", chdesc, handlers[iidx].data.tapsync.rising_edge);
 						break;
 					case HANDLE_LASER:
 						client_printf(c, "%sL%c", chdesc, dmxindex_to_channel(handlers[iidx].data.laser.base_channel));

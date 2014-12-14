@@ -16,7 +16,7 @@ printf 'M\x29S'
 printf 'M\x2DD'
 
 # Tapsync
-printf 'M\x2ET'
+printf 'M\x2ET\x01'
 
 # LED-par 1
 printf 'M\x002\x10\x01'
